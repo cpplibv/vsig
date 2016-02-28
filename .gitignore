@@ -1,0 +1,14 @@
+/*
+/*/
+
+!cmake/
+!example/
+!include/
+!sandbox/
+!src/
+!test/
+
+!.gitignore
+!TODO.md
+!CMakeLists.txt
+!README.md
