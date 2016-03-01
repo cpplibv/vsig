@@ -2,16 +2,16 @@
 
 #pragma once
 
-#define LIBV_SIGNAL_VERSION_MAJOR 1
-#define LIBV_SIGNAL_VERSION_MINOR 0
+#define LIBV_SIGNAL_VERSION 2016030100
 
+// TODO P1: Use templated containers
 // TODO P1: Use ordered small vector for Signal-Slot-Trackable
 // TODO P1: Rework Signal-Slot multithreading with shared_reqursive_mutex
 // 			http://en.cppreference.com/w/cpp/thread/shared_mutex
 //			Or with lock free way, or both...
 // TODO P1: Rework connection and trackable objects
 // TODO P2: Branch signals into two: sync and async signals, this will ease my pain about them...
-// TODO P2: Forbid &&
+// TODO P2: Forbid && move
 // TODO P2: Change from trackable to shared or weak ptr
 // 			signal target variable ami egy shared_ptr és a signal kap róla
 // 			egy weak_ptr-t így amikor külden rá infot csak kidobja magából, ígykönnyen
@@ -24,6 +24,7 @@
 // TODO P3: Remove reference, remove constness from results type?
 // TODO P3: In Signal Hub-Proxy a connection can be represented with only 1 ptr where the last last
 //			bit of the address can represent the direction!
+// TODO P3: Move virtuals to compile time
 
 // TODO P5: AdaptivSignal [in/out]put (same, generic lambda...)
 // TODO P5: RoutingSignal [set/get]Condition(SignalRouter)
@@ -31,15 +32,18 @@
 // 			May consider a "predicate" function for generating priority
 // TODO P5: UniqueSignal - Modified capacitiv where the storage is unique
 // 			May consider a "compare" function for determining uniqueness
+// TODO P5: MoveSignal - allows && move as arg, but only has one output
 // TODO P5: ConditionalSignal - Forward the call only if the predicate function allows it
-// TODO P5: HistorySignal - Stores and forward calls but also distibute them to late subsribers.
+// TODO P5: HistorySignal - Stores and forward calls but also distribute them to late subscribers.
 //			Also a template size_t N for limit max call memory number
 // TODO P5: TransformSignal - Manipulating the arguments flowing through it using a
 // 			manipulator function. Similar to std::transform.
 // TODO P5: AsnycSignal - Put the fire method and the arguments into a worker
 // 			thread que to call this signal in async mode. (template executor?)
+// 			Note: the main task of this signal is to use the executor for callbacks
 // TODO P5: SnycSignal - Put the fire method and the arguments into a worker
 // 			thread que to call this signal in sync mode. (template executor?)
+// 			Note: the main task of this signal is to use the executor for callbacks
 
 // TODO P5: Another raw idea for light weight signals: SignalPtr which is only a pointer to the real
 //			signal. It could also store some additional information such as FilterSignalPtr could
@@ -50,8 +54,11 @@
 // TODO PD: Turotial of Signal-Slot. The boost version may be relevant
 // 			http://www.boost.org/doc/libs/1_59_0/doc/html/signals2/tutorial.html
 
+// Name: Hub: SignalHub, SignalHost
+// Name: Proxy: SignalProxy, SignalMarker
+
 // TODO P?: Accumulator refactor into object?
-// TODO P?: Make a connection object to trackables and move thread policy into it (?)
+// IDEA: Make a connection object to trackables and move thread policy into it (?)
 //Fact: Signal ctor needs to be able to handle an adaptor?
 //Fact: It is possible to do adaptiv slots! it is very possible generic lambda?
 

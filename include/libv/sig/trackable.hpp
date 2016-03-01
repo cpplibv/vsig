@@ -3,11 +3,6 @@
 #pragma once
 
 #include <map>
-//#include <boost/container/small_vector.hpp>
-
-//#ifndef LIBV_SIG_TRACKABLE_SMALL_VECTOR_SIZE
-//#    define LIBV_SIG_TRACKABLE_SMALL_VECTOR_SIZE 4
-//#endif
 
 namespace libv {
 
