@@ -66,7 +66,6 @@
 #include <memory>
 #include <mutex>
 #include <set>
-#include <type_traits>
 #include <vector>
 
 #include "accumulator.hpp"
@@ -74,21 +73,15 @@
 
 namespace libv {
 
-// -------------------------------------------------------------------------------------------------
-
-template <typename RType>
-class Accumulator;
-
 // === Signal ======================================================================================
 
-template <typename RType, typename... Args>
+template <typename Accum, typename RType, typename... Args>
 class SignalImpl : public TrackableBase {
 protected:
 	mutable std::recursive_mutex mutex;
 	std::multiset<TrackableBase*> inputs;
 	std::multimap<TrackableBase*, std::function<RType(Args...) >> outputs;
 
-	Accumulator<RType>* accumulator;
 protected:
 	virtual void connect(TrackableBase* ptr, bool reflect = true) override {
 		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
@@ -105,22 +98,9 @@ protected:
 	}
 	// ---------------------------------------------------------------------------------------------
 public:
-	SignalImpl() :
-		accumulator(Accumulator<RType>::get()) { }
-	SignalImpl(Accumulator<RType>* accumulator) :
-		accumulator(accumulator) { }
+	SignalImpl() = default;
 	SignalImpl(const SignalImpl<RType, Args...>& other) = delete;
 
-	// ---------------------------------------------------------------------------------------------
-public:
-	inline Accumulator<RType>* getAccumulator() const {
-		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
-		return accumulator;
-	}
-	inline void setAccumulator(Accumulator<RType>* accumulator) {
-		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
-		this->accumulator = accumulator;
-	}
 	// ---------------------------------------------------------------------------------------------
 public:
 	virtual RType fire(Args... args) {
@@ -131,24 +111,15 @@ public:
 	}
 
 protected:
-	template <typename R2 = RType, typename =
-	typename std::enable_if<std::is_void<R2>::value>::type>
-	RType fireImpl(Args... args) {
-		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
-		for (auto& output : outputs) {
-			output.second(std::forward<Args>(args)...);
-		}
-	}
-	template <typename R2 = RType, typename =
-	typename std::enable_if<!std::is_void<R2>::value>::type>
 	RType fireImpl(Args... args, int /*ignored*/ = 0) {
 		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
-		RType result = accumulator->begin();
+
+		auto accumulator = Accum{};
 		for (auto& output : outputs) {
-			if (!accumulator->add(result, output.second(std::forward<Args>(args)...)))
-				return result;
+			if (!(output.second(std::forward<Args>(args)...), accumulator))
+				return accumulator.result();
 		}
-		return result;
+		return accumulator.result();
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -176,12 +147,12 @@ public:
 	inline void input(SignalImpl<RType, Args...>& sig) {
 		sig.output(this);
 	}
-	void input(SignalImpl<RType, Args...> * const sig) {
+	inline void input(SignalImpl<RType, Args...> * const sig) {
 		sig->output(this);
 	}
 
 	// ---------------------------------------------------------------------------------------------
-	void output(const std::function<RType(Args...)>& func) {
+	inline void output(const std::function<RType(Args...)>& func) {
 		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
 		outputs.emplace(nullptr, func);
 	}
@@ -196,12 +167,12 @@ public:
 		outputs.emplace(obj, [obj, func](Args... args) {
 			(obj->*func)(std::forward<Args>(args)...);
 		});
-		static_cast<TrackableBase*>(obj)->connect(this, true);
+		static_cast<TrackableBase*> (obj)->connect(this, true);
 	}
 	inline void output(SignalImpl<RType, Args...>& slot) {
 		output(&slot);
 	}
-	inline void output(SignalImpl<RType, Args...>* const slot) {
+	inline void output(SignalImpl<RType, Args...> * const slot) {
 		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
 		output(&SignalImpl<RType, Args...>::fire, slot);
 		slot->inputs.emplace(this);
@@ -216,8 +187,9 @@ public:
 
 // === CapacitivSignal =============================================================================
 
-template <typename... Args>
-class CapacitivSignalImpl : public SignalImpl<void, Args...> {
+//template <typename... Args>
+template <typename Accum, typename RType, typename... Args>
+class CapacitivSignalImpl : public SignalImpl<Accum, void, Args...> {
 private:
 	std::vector<std::tuple<typename std::remove_reference<Args>::type...>> argQue;
 private:
@@ -241,8 +213,9 @@ public:
 
 // === SwitchSignal ===========================================================================
 
-template <typename R, typename... Args>
-struct SwitchSignalImpl : public SignalImpl<R, Args...> {
+//template <typename R, typename... Args>
+template <typename Accum, typename RType, typename... Args>
+struct SwitchSignalImpl : public SignalImpl<Accum, RType, Args...> {
 	bool enabled = true;
 public:
 	inline void enable() {
@@ -253,17 +226,18 @@ public:
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
 		enabled = false;
 	}
-	virtual R fire(Args... args) override {
+	virtual RType fire(Args... args) override {
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
 		if (enabled)
-			return SignalImpl < R, Args...>::fire(std::forward<Args>(args)...);
+			return SignalImpl<RType, Args...>::fire(std::forward<Args>(args)...);
 	}
 };
 
 // === HistorySignal ===============================================================================
 
-template <typename... Args>
-class HistorySignalImpl : public SignalImpl<void, Args...> {
+//template <typename... Args>
+template <typename Accum, typename RType, typename... Args>
+class HistorySignalImpl : public SignalImpl<Accum, void, Args...> {
 private:
 	std::vector<std::tuple<typename std::remove_reference<Args>::type...>> history;
 private:
@@ -296,46 +270,67 @@ public:
 
 // === Aliases =====================================================================================
 
+// Signal ------------------------------------------------------------------------------------------
+
 template<typename... Args>
-struct Signal : public SignalImpl<void, Args...> {
-	using SignalImpl<void, Args...>::SignalImpl;
+struct Signal : public SignalImpl<AccumulatorVoid, void, Args...> {
+	using SignalImpl<AccumulatorVoid, void, Args...>::SignalImpl;
 };
 
 template<typename R, typename... Args>
-struct Signal<R(Args...)> : public SignalImpl<R, Args...> {
-	using SignalImpl<R, Args...>::SignalImpl;
+struct Signal<R(Args...)> : public SignalImpl<AccumulatorSum<R>, R, Args...> {
+	using SignalImpl<AccumulatorSum<R>, R, Args...>::SignalImpl;
 };
 
-template<typename... T>
-struct CapacitivSignal : public CapacitivSignalImpl<T...> {
-	using CapacitivSignalImpl<T...>::CapacitivSignalImpl;
+template<typename Accum, typename R, typename... Args>
+struct Signal<R(Args...), Accum> : public SignalImpl<Accum, R, Args...> {
+	using SignalImpl<Accum, R, Args...>::SignalImpl;
 };
 
-template<typename R, typename... T>
-struct CapacitivSignal<R(T...)> : public CapacitivSignalImpl<T...> {
-	static_assert(!std::is_same<R, void>::value, "Return type must be void in CapacitivSignal");
-	using CapacitivSignalImpl<T...>::CapacitivSignalImpl;
-};
+// CapacitivSignal ---------------------------------------------------------------------------------
 
 template<typename... Args>
-struct SwitchSignal : public SwitchSignalImpl<void, Args...> {
-	using SwitchSignalImpl<void, Args...>::SwitchSignalImpl;
+struct CapacitivSignal : public CapacitivSignalImpl<AccumulatorVoid, void, Args...> {
+	using CapacitivSignalImpl<AccumulatorVoid, void, Args...>::CapacitivSignalImpl;
+};
+
+template< typename Accum, typename... Args>
+struct CapacitivSignal<void(Args...)> : public CapacitivSignalImpl<AccumulatorVoid, void, Args...> {
+	using CapacitivSignalImpl<AccumulatorVoid, void, Args...>::CapacitivSignalImpl;
+};
+
+// SwitchSignal ------------------------------------------------------------------------------------
+
+
+template<typename... Args>
+struct SwitchSignal : public SwitchSignalImpl<AccumulatorVoid, void, Args...> {
+	using SwitchSignalImpl<AccumulatorVoid, void, Args...>::SwitchSignalImpl;
 };
 
 template<typename R, typename... Args>
-struct SwitchSignal<R(Args...)> : public SwitchSignalImpl<R, Args...> {
-	using SwitchSignalImpl<R, Args...>::SwitchSignalImpl;
+struct SwitchSignal<R(Args...)> : public SwitchSignalImpl<AccumulatorSum<R>, R, Args...> {
+	// R can be void... <<<
+	// AccumulatorSum<R> dont like void...
+	using SwitchSignalImpl<AccumulatorSum<R>, R, Args...>::SwitchSignalImpl;
 };
 
-template<typename... T>
-struct HistorySignal : public HistorySignalImpl<T...> {
-	using HistorySignalImpl<T...>::HistorySignalImpl;
+template<typename Accum, typename R, typename... Args>
+struct SwitchSignal<R(Args...), Accum> : public SwitchSignalImpl<Accum, R, Args...> {
+	using SwitchSignalImpl<Accum, R, Args...>::SwitchSignalImpl;
 };
 
-template<typename R, typename... T>
-struct HistorySignal<R(T...)> : public HistorySignalImpl<T...> {
-	static_assert(!std::is_same<R, void>::value, "Return type must be void in HistorySignal");
-	using HistorySignalImpl<T...>::HistorySignalImpl;
+// HistorySignal -----------------------------------------------------------------------------------
+
+template<typename... Args>
+struct HistorySignal : public CapacitivSignalImpl<AccumulatorVoid, void, Args...> {
+	using CapacitivSignalImpl<AccumulatorVoid, void, Args...>::CapacitivSignalImpl;
 };
+
+template< typename Accum, typename... Args>
+struct HistorySignal<void(Args...)> : public HistorySignalImpl<AccumulatorVoid, void, Args...> {
+	using HistorySignalImpl<AccumulatorVoid, void, Args...>::HistorySignalImpl;
+};
+
+// -------------------------------------------------------------------------------------------------
 
 } //namespace libv

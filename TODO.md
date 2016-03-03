@@ -12,3 +12,5 @@ Signal Hub
 Signal Proxy
 Signal Local Hub
 Signal Local Proxy
+
+Signal Connection Marker
