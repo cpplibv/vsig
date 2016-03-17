@@ -9,6 +9,7 @@
 !test/
 
 !.gitignore
-!TODO.md
 !CMakeLists.txt
 !README.md
+!TODO.md
+!onlab.md
