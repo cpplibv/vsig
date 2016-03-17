@@ -32,8 +32,8 @@ TEST_CASE("Default signal accumulator should be sum") {
 
 // -------------------------------------------------------------------------------------------------
 
-TEST_CASE("AccumulatorLogicalAnd should logical and shortcut") {
-	Signal<bool(), AccumulatorLogicalAnd<bool>> signal;
+TEST_CASE("AccumulatorAnd should logical and shortcut") {
+	Signal<bool(), AccumulatorAnd<bool>> signal;
 	int callDepth = 0;
 
 	signal.output([&] {
@@ -53,8 +53,8 @@ TEST_CASE("AccumulatorLogicalAnd should logical and shortcut") {
 	CHECK(callDepth == 1);
 }
 
-TEST_CASE("AccumulatorLogicalAnd should logical and visit all") {
-	Signal<bool(), AccumulatorLogicalAnd<bool>> signal;
+TEST_CASE("AccumulatorAnd should logical and visit all") {
+	Signal<bool(), AccumulatorAnd<bool>> signal;
 	int callDepth = 0;
 
 	signal.output([&] {
@@ -76,8 +76,8 @@ TEST_CASE("AccumulatorLogicalAnd should logical and visit all") {
 
 // -------------------------------------------------------------------------------------------------
 
-TEST_CASE("AccumulatorLogicalAnd should logical or visit all") {
-	Signal<bool(), AccumulatorLogicalOr<bool>> signal;
+TEST_CASE("AccumulatorAnd should logical or visit all") {
+	Signal<bool(), AccumulatorOr<bool>> signal;
 	int callDepth = 0;
 
 	signal.output([&] {
@@ -97,8 +97,8 @@ TEST_CASE("AccumulatorLogicalAnd should logical or visit all") {
 	CHECK(callDepth == 3);
 }
 
-TEST_CASE("AccumulatorLogicalAnd should logical or shortcut") {
-	Signal<bool(), AccumulatorLogicalOr<bool>> signal;
+TEST_CASE("AccumulatorAnd should logical or shortcut") {
+	Signal<bool(), AccumulatorOr<bool>> signal;
 	int callDepth = 0;
 
 	signal.output([&] {

@@ -4,10 +4,13 @@
 
 namespace libv {
 
+// IDEA: Instead of accumulator_tag, i could use a common empty base class.
+
 // -------------------------------------------------------------------------------------------------
 
 // template <typename T>
 // Concept Accumulator {
+//	using accumulator_tag = void;
 //	Accumulator()
 //		- Accumulator should be default constructible
 //	inline bool add();
@@ -15,14 +18,23 @@ namespace libv {
 //	inline T result();
 //		- returns the accumulated results
 //};
+//
+// template <>
+// Concept Accumulator<void> {
+//	using accumulator_tag = void;
+//};
 
 // -------------------------------------------------------------------------------------------------
 
 struct AccumulatorVoid {
+	using accumulator_tag = void;
 };
+
+// -------------------------------------------------------------------------------------------------
 
 template <typename T>
 struct AccumulatorSum {
+	using accumulator_tag = void;
 	T accumulatedValue;
 	T result() const {
 		return accumulatedValue;
@@ -33,8 +45,16 @@ struct AccumulatorSum {
 	}
 };
 
+template <>
+struct AccumulatorSum<void> {
+	using accumulator_tag = void;
+};
+
+// -------------------------------------------------------------------------------------------------
+
 template <typename T>
 struct AccumulatorLast {
+	using accumulator_tag = void;
 	T accumulatedValue{};
 	T result() const {
 		return accumulatedValue;
@@ -45,8 +65,16 @@ struct AccumulatorLast {
 	}
 };
 
+template <>
+struct AccumulatorLast<void> {
+	using accumulator_tag = void;
+};
+
+// -------------------------------------------------------------------------------------------------
+
 template <typename T>
-struct AccumulatorLogicalAnd {
+struct AccumulatorAnd {
+	using accumulator_tag = void;
 	T accumulatedValue{true};
 	T result() const {
 		return accumulatedValue;
@@ -57,8 +85,16 @@ struct AccumulatorLogicalAnd {
 	}
 };
 
+template <>
+struct AccumulatorAnd<void> {
+	using accumulator_tag = void;
+};
+
+// -------------------------------------------------------------------------------------------------
+
 template <typename T>
-struct AccumulatorLogicalOr {
+struct AccumulatorOr {
+	using accumulator_tag = void;
 	T accumulatedValue{false};
 	T result() const {
 		return accumulatedValue;
@@ -67,6 +103,11 @@ struct AccumulatorLogicalOr {
 		accumulatedValue = accumulatedValue || value;
 		return !accumulatedValue;
 	}
+};
+
+template <>
+struct AccumulatorOr<void> {
+	using accumulator_tag = void;
 };
 
 // -------------------------------------------------------------------------------------------------

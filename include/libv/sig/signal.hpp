@@ -25,6 +25,9 @@
 // TODO P3: In Signal Hub-Proxy a connection can be represented with only 1 ptr where the last last
 //			bit of the address can represent the direction!
 // TODO P3: Move virtuals to compile time
+// TODO P3: Give static assert for "typos" like: Signal<int, AccumulatorSum<int>, SingleThread>
+// TODO P3: Add precise assertions for correct module number: 0-1 acc, 0-1 thread, 0-1 callsyt
+// TODO P5: Implement position independent call sytax
 
 // TODO P5: AdaptivSignal [in/out]put (same, generic lambda...)
 // TODO P5: RoutingSignal [set/get]Condition(SignalRouter)
@@ -32,6 +35,8 @@
 // 			May consider a "predicate" function for generating priority
 // TODO P5: UniqueSignal - Modified capacitiv where the storage is unique
 // 			May consider a "compare" function for determining uniqueness
+//			May consider merging and collapsing awating events buy a new one
+//			This would be through some template extendabality...
 // TODO P5: MoveSignal - allows && move as arg, but only has one output
 // TODO P5: ConditionalSignal - Forward the call only if the predicate function allows it
 // TODO P5: HistorySignal - Stores and forward calls but also distribute them to late subscribers.
@@ -49,18 +54,18 @@
 //			signal. It could also store some additional information such as FilterSignalPtr could
 //			store the filter information that will be applied to the output. (Component::onClick
 //			could be a FilterSignalPtr that points to the UI signal and stores the boundaries)
+//			Or would a Signal Tunnel be a better name?
+
 // TODO PD: Documentation of Signal-Slot. The boost version may be relevant
 // 			http://www.boost.org/doc/libs/1_59_0/doc/html/signals2/reference.html
 // TODO PD: Turotial of Signal-Slot. The boost version may be relevant
 // 			http://www.boost.org/doc/libs/1_59_0/doc/html/signals2/tutorial.html
 
-// Name: Hub: SignalHub, SignalHost
-// Name: Proxy: SignalProxy, SignalMarker
-
-// TODO P?: Accumulator refactor into object?
 // IDEA: Make a connection object to trackables and move thread policy into it (?)
-//Fact: Signal ctor needs to be able to handle an adaptor?
-//Fact: It is possible to do adaptiv slots! it is very possible generic lambda?
+// FACT: Signal ctor needs to be able to handle an adaptor?
+// FACT: It is possible to do adaptiv slots! it is very possible generic lambda?
+// NAME: Hub: SignalHub, SignalHost
+// NAME: Proxy: SignalProxy, SignalMarker
 
 #include <map>
 #include <memory>
@@ -70,14 +75,23 @@
 
 #include "accumulator.hpp"
 #include "trackable.hpp"
+#include "thread_policy.hpp"
+#include "type_traits.hpp"
 
 namespace libv {
 
 // === Signal ======================================================================================
 
-template <typename Accum, typename RType, typename... Args>
+//template <typename...>
+//class SignalImpl;
+//
+//template <typename Accumulator, typename ThreadPolicy, typename RType, typename... Args>
+//class SignalImpl<RType(Args...), Accumulator, ThreadPolicy> : public TrackableBase {
+
+template <typename Accumulator, typename ThreadPolicy, typename RType, typename... Args>
 class SignalImpl : public TrackableBase {
 protected:
+	ThreadPolicy threadPolicy;
 	mutable std::recursive_mutex mutex;
 	std::multiset<TrackableBase*> inputs;
 	std::multimap<TrackableBase*, std::function<RType(Args...) >> outputs;
@@ -99,7 +113,7 @@ protected:
 	// ---------------------------------------------------------------------------------------------
 public:
 	SignalImpl() = default;
-	SignalImpl(const SignalImpl<Accum, RType, Args...>& other) = delete;
+	SignalImpl(const SignalImpl<Accumulator, ThreadPolicy, RType, Args...>& other) = delete;
 
 	// ---------------------------------------------------------------------------------------------
 public:
@@ -121,7 +135,7 @@ protected:
 	template <typename R2 = RType, typename = typename std::enable_if<!std::is_void<R2>::value>::type>
 	RType fireImpl(Args... args, int /*ignored*/ = 0) {
 		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
-		auto accumulator = Accum();
+		auto accumulator = Accumulator();
 		for (auto& output : outputs) {
 			if (!accumulator.add(output.second(std::forward<Args>(args)...)))
 				return accumulator.result();
@@ -150,11 +164,11 @@ public:
 		return outputs.size();
 	}
 
-	// ---------------------------------------------------------------------------------------------
-	inline void input(SignalImpl<Accum, RType, Args...>& sig) {
+//	// ---------------------------------------------------------------------------------------------
+	inline void input(SignalImpl<Accumulator, ThreadPolicy, RType, Args...>& sig) {
 		sig.output(this);
 	}
-	inline void input(SignalImpl<Accum, RType, Args...> * const sig) {
+	inline void input(SignalImpl<Accumulator, ThreadPolicy, RType, Args...> * const sig) {
 		sig->output(this);
 	}
 
@@ -176,12 +190,12 @@ public:
 		});
 		static_cast<TrackableBase*> (obj)->connect(this, true);
 	}
-	inline void output(SignalImpl<Accum, RType, Args...>& slot) {
+	inline void output(SignalImpl<Accumulator, ThreadPolicy, RType, Args...>& slot) {
 		output(&slot);
 	}
-	inline void output(SignalImpl<Accum, RType, Args...> * const slot) {
+	inline void output(SignalImpl<Accumulator, ThreadPolicy, RType, Args...> * const slot) {
 		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
-		output(&SignalImpl<Accum, RType, Args...>::fire, slot);
+		output(&SignalImpl<Accumulator, ThreadPolicy, RType, Args...>::fire, slot);
 		slot->inputs.emplace(this);
 	}
 
@@ -195,15 +209,15 @@ public:
 // === CapacitivSignal =============================================================================
 
 //template <typename... Args>
-template <typename Accum, typename RType, typename... Args>
-class CapacitivSignalImpl : public SignalImpl<Accum, void, Args...> {
+template <typename Accumulator, typename ThreadPolicy, typename RType, typename... Args>
+class CapacitivSignalImpl : public SignalImpl<Accumulator, ThreadPolicy, void, Args...> {
 private:
 	std::vector<std::tuple<typename std::remove_reference<Args>::type...>> argQue;
 private:
 	template<std::size_t... Is>
 	inline void flushHelper(std::index_sequence<Is...>) {
 		for (auto& item : argQue) {
-			SignalImpl<Accum, void, Args...>::fire(std::get<Is>(item)...);
+			SignalImpl<Accumulator, ThreadPolicy, void, Args...>::fire(std::get<Is>(item)...);
 		}
 		argQue.clear();
 	}
@@ -221,8 +235,8 @@ public:
 // === SwitchSignal ===========================================================================
 
 //template <typename R, typename... Args>
-template <typename Accum, typename RType, typename... Args>
-struct SwitchSignalImpl : public SignalImpl<Accum, RType, Args...> {
+template <typename Accumulator, typename ThreadPolicy, typename RType, typename... Args>
+struct SwitchSignalImpl : public SignalImpl<Accumulator, ThreadPolicy, RType, Args...> {
 	bool enabled = true;
 public:
 	inline void enable() {
@@ -236,15 +250,16 @@ public:
 	virtual RType fire(Args... args) override {
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
 		if (enabled)
-			return SignalImpl<Accum, RType, Args...>::fire(std::forward<Args>(args)...);
+			return SignalImpl<Accumulator, ThreadPolicy, RType, Args...>::fire(std::forward<Args>(args)...);
+		return RType();
 	}
 };
 
 // === HistorySignal ===============================================================================
 
 //template <typename... Args>
-template <typename Accum, typename RType, typename... Args>
-class HistorySignalImpl : public SignalImpl<Accum, void, Args...> {
+template <typename Accumulator, typename ThreadPolicy, typename RType, typename... Args>
+class HistorySignalImpl : public SignalImpl<Accumulator, ThreadPolicy, void, Args...> {
 private:
 	std::vector<std::tuple<typename std::remove_reference<Args>::type...>> history;
 private:
@@ -267,7 +282,7 @@ public:
 	virtual void fire(Args... args) override {
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
 		history.emplace_back(args...);
-		SignalImpl<Accum, void, Args...>::fire(args...);
+		SignalImpl<Accumulator, ThreadPolicy, void, Args...>::fire(args...);
 	}
 	inline void clearHistory() {
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
@@ -277,65 +292,100 @@ public:
 
 // === Aliases =====================================================================================
 
+template<template <typename...> class, typename...>
+struct SignalAliasHelper;
+
+template<template <typename...> class Signal,
+		typename R, typename... Args,
+		typename DefaultAccumulator,
+		typename DefaultThreadPolicy,
+		typename... Moduls>
+struct SignalAliasHelper<
+		Signal, R(Args...),
+		deafult<DefaultAccumulator>,
+		deafult<DefaultThreadPolicy>,
+		Moduls...> {
+	using type = Signal<
+				select_accumulator_or<DefaultAccumulator, Moduls...>,
+				select_thread_policy_or<DefaultThreadPolicy, Moduls...>,
+				R, Args...>;
+};
+
+template<template <typename...> class Signal, typename... Types>
+using SignalAliasHelper_t = typename SignalAliasHelper<Signal, Types...>::type;
+
 // Signal ------------------------------------------------------------------------------------------
 
 template<typename... Args>
-struct Signal : public SignalImpl<AccumulatorVoid, void, Args...> {
-	using SignalImpl<AccumulatorVoid, void, Args...>::SignalImpl;
+struct Signal :
+	public SignalAliasHelper_t<SignalImpl, void(Args...),
+				deafult<AccumulatorVoid>, deafult<SingleThread>> {
+	using SignalAliasHelper_t<SignalImpl, void(Args...),
+				deafult<AccumulatorVoid>, deafult<SingleThread>>::SignalAliasHelper_t;
 };
 
-template<typename R, typename... Args>
-struct Signal<R(Args...)> : public SignalImpl<AccumulatorSum<R>, R, Args...> {
-	using SignalImpl<AccumulatorSum<R>, R, Args...>::SignalImpl;
-};
-
-template<typename Accum, typename R, typename... Args>
-struct Signal<R(Args...), Accum> : public SignalImpl<Accum, R, Args...> {
-	using SignalImpl<Accum, R, Args...>::SignalImpl;
+template<typename R, typename... Args, typename... Moduls>
+struct Signal<R(Args...), Moduls...> :
+	public SignalAliasHelper_t<SignalImpl, R(Args...),
+				deafult<AccumulatorSum<R>>, deafult<SingleThread>, Moduls...> {
+	using SignalAliasHelper_t<SignalImpl, R(Args...),
+				deafult<AccumulatorSum<R>>, deafult<SingleThread>, Moduls...>::SignalAliasHelper_t;
 };
 
 // CapacitivSignal ---------------------------------------------------------------------------------
 
 template<typename... Args>
-struct CapacitivSignal : public CapacitivSignalImpl<AccumulatorVoid, void, Args...> {
-	using CapacitivSignalImpl<AccumulatorVoid, void, Args...>::CapacitivSignalImpl;
+struct CapacitivSignal :
+	public SignalAliasHelper_t<CapacitivSignalImpl, void(Args...),
+				deafult<AccumulatorVoid>, deafult<SingleThread>> {
+	using SignalAliasHelper_t<CapacitivSignalImpl, void(Args...),
+				deafult<AccumulatorVoid>, deafult<SingleThread>>::SignalAliasHelper_t;
 };
 
-template<typename... Args>
-struct CapacitivSignal<void(Args...)> : public CapacitivSignalImpl<AccumulatorVoid, void, Args...> {
-	using CapacitivSignalImpl<AccumulatorVoid, void, Args...>::CapacitivSignalImpl;
+template<typename R, typename... Args, typename... Moduls>
+struct CapacitivSignal<R(Args...), Moduls...> :
+	public SignalAliasHelper_t<CapacitivSignalImpl, void(Args...),
+				deafult<AccumulatorVoid>, deafult<SingleThread>, Moduls...> {
+	using SignalAliasHelper_t<CapacitivSignalImpl, void(Args...),
+				deafult<AccumulatorVoid>, deafult<SingleThread>, Moduls...>::SignalAliasHelper_t;
+	// TODO P4: R should always be void. Assert it.
 };
 
 // SwitchSignal ------------------------------------------------------------------------------------
 
-
 template<typename... Args>
-struct SwitchSignal : public SwitchSignalImpl<AccumulatorVoid, void, Args...> {
-	using SwitchSignalImpl<AccumulatorVoid, void, Args...>::SwitchSignalImpl;
+struct SwitchSignal :
+	public SignalAliasHelper_t<SwitchSignalImpl, void(Args...),
+				deafult<AccumulatorVoid>, deafult<SingleThread>> {
+	using SignalAliasHelper_t<SwitchSignalImpl, void(Args...),
+				deafult<AccumulatorVoid>, deafult<SingleThread>>::SignalAliasHelper_t;
 };
 
-template<typename R, typename... Args>
-struct SwitchSignal<R(Args...)> : public SwitchSignalImpl<AccumulatorSum<R>, R, Args...> {
-	// R can be void... <<<
-	// AccumulatorSum<R> dont like void...
-	using SwitchSignalImpl<AccumulatorSum<R>, R, Args...>::SwitchSignalImpl;
-};
-
-template<typename Accum, typename R, typename... Args>
-struct SwitchSignal<R(Args...), Accum> : public SwitchSignalImpl<Accum, R, Args...> {
-	using SwitchSignalImpl<Accum, R, Args...>::SwitchSignalImpl;
+template<typename R, typename... Args, typename... Moduls>
+struct SwitchSignal<R(Args...), Moduls...> :
+	public SignalAliasHelper_t<SwitchSignalImpl, R(Args...),
+				deafult<AccumulatorSum<R>>, deafult<SingleThread>, Moduls...> {
+	using SignalAliasHelper_t<SwitchSignalImpl, R(Args...),
+				deafult<AccumulatorSum<R>>, deafult<SingleThread>, Moduls...>::SignalAliasHelper_t;
 };
 
 // HistorySignal -----------------------------------------------------------------------------------
 
 template<typename... Args>
-struct HistorySignal : public HistorySignalImpl<AccumulatorVoid, void, Args...> {
-	using HistorySignalImpl<AccumulatorVoid, void, Args...>::HistorySignalImpl;
+struct HistorySignal :
+	public SignalAliasHelper_t<HistorySignalImpl, void(Args...),
+				deafult<AccumulatorVoid>, deafult<SingleThread>> {
+	using SignalAliasHelper_t<HistorySignalImpl, void(Args...),
+				deafult<AccumulatorVoid>, deafult<SingleThread>>::SignalAliasHelper_t;
 };
 
-template<typename... Args>
-struct HistorySignal<void(Args...)> : public HistorySignalImpl<AccumulatorVoid, void, Args...> {
-	using HistorySignalImpl<AccumulatorVoid, void, Args...>::HistorySignalImpl;
+template<typename R, typename... Args, typename... Moduls>
+struct HistorySignal<R(Args...), Moduls...> :
+	public SignalAliasHelper_t<HistorySignalImpl, R(Args...),
+				deafult<AccumulatorVoid>, deafult<SingleThread>, Moduls...> {
+	using SignalAliasHelper_t<HistorySignalImpl, R(Args...),
+				deafult<AccumulatorVoid>, deafult<SingleThread>, Moduls...>::SignalAliasHelper_t;
+	// TODO P4: R should always be void. Assert it.
 };
 
 // -------------------------------------------------------------------------------------------------
