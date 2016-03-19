@@ -18,8 +18,16 @@ using void_t = typename voider<Args...>::type;
 
 // -------------------------------------------------------------------------------------------------
 
-template <typename Type>
-struct deafult {
+template <typename T>
+using enable_if_t = typename std::enable_if<T::value>::type;
+
+template <typename T>
+using disable_if_t = typename std::enable_if<!T::value>::type;
+
+// -------------------------------------------------------------------------------------------------
+
+template <typename... Type>
+struct deafults {
 };
 
 template <typename... Types>
@@ -75,6 +83,8 @@ using Name = typename std::conditional< \
 >::type;
 
 // -------------------------------------------------------------------------------------------------
+
+LIBV_IMPLEMENT_HAS_TAG(is_signal, signal_tag)
 
 LIBV_IMPLEMENT_HAS_TAG(is_accumulator, accumulator_tag)
 LIBV_IMPLEMENT_SELECT_MODUL(select_accumulator, is_accumulator)

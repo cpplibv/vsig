@@ -20,21 +20,21 @@ TEST_CASE("SignalConstruct") {
 
 // --- Input / Output ------------------------------------------------------------------------------
 
-TEST_CASE("SignalInputSignal") {
-	Signal<> source, target;
-
-	target.input(source);
-	CHECK(source.inputSize() == 0u);
-	CHECK(source.outputSize() == 1u);
-	CHECK(target.inputSize() == 1u);
-	CHECK(target.outputSize() == 0u);
-
-	target.input(&source);
-	CHECK(source.inputSize() == 0u);
-	CHECK(source.outputSize() == 2u);
-	CHECK(target.inputSize() == 2u);
-	CHECK(target.outputSize() == 0u);
-}
+//TEST_CASE("SignalInputSignal") {
+//	Signal<> source, target;
+//
+//	target.input(source);
+//	CHECK(source.inputSize() == 0u);
+//	CHECK(source.outputSize() == 1u);
+//	CHECK(target.inputSize() == 1u);
+//	CHECK(target.outputSize() == 0u);
+//
+//	target.input(&source);
+//	CHECK(source.inputSize() == 0u);
+//	CHECK(source.outputSize() == 2u);
+//	CHECK(target.inputSize() == 2u);
+//	CHECK(target.outputSize() == 0u);
+//}
 
 TEST_CASE("SignalOutputSignal") {
 	Signal<> source, target;
@@ -56,7 +56,8 @@ TEST_CASE("SignalOutputSignal") {
 TEST_CASE("SignalRelaySignal") {
 	Signal<> source, relay, target;
 
-	relay.input(source);
+//	relay.input(source);
+	source.output(relay);
 	relay.output(target);
 	CHECK(source.inputSize() == 0u);
 	CHECK(source.outputSize() == 1u);

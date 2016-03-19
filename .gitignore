@@ -2,6 +2,7 @@
 /*/
 
 !cmake/
+!doc/
 !example/
 !include/
 !sandbox/
@@ -12,4 +13,3 @@
 !CMakeLists.txt
 !README.md
 !TODO.md
-!onlab.md

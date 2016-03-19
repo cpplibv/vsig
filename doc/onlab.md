@@ -23,7 +23,7 @@ what it is? template, generic, native c++, sig-slot, higher abstractions, warnin
 
 ### Motivation
 10 line
-difference from alternatives, why it is worth the implementation
+difference from alternatives, why it is worth the implementation: signal types
 signal-signal-slot
 
 ### Terminology
@@ -51,6 +51,8 @@ Még a legerőssebb warrning szinteken is warrning nélkül fordul. (Tesztelve: 
 ### Project hierarchy
 bin
 build
+cmake
+doc
 example
 include
 lib
