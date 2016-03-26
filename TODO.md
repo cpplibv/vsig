@@ -1,9 +1,8 @@
 // Stack -------------------------------------------------------------------------------------------
 
+make sure of fix ordering of moduls (make_traits<...>::type)
 -- commit
 Implement SignalAsyncBase. This will reduce redundancy
--- commit
-Moduls and type traits
 -- commit
 Implement more shit (SignalTypes)
 -- commit
@@ -14,6 +13,10 @@ Accumulator different _real_ return type then given
 Collapse Signal-s output override
 -- commit
 Trackable type ereaser instead of inheritance
+This basicly means remove Trackable base class and handle trackable and handle it as concept
+-- commit
+Use historyMax
+-- commit
 
 // -------------------------------------------------------------------------------------------------
 

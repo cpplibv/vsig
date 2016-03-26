@@ -97,17 +97,14 @@ LIBV_IMPLEMENT_HAS_TAG(is_thread_policy, thread_policy_tag)
 LIBV_IMPLEMENT_SELECT_MODUL(select_thread_policy, is_thread_policy)
 LIBV_IMPLEMENT_SELECT_MODUL_OR_DEAFULT(select_thread_policy_or, is_thread_policy)
 
+LIBV_IMPLEMENT_HAS_TAG(is_history_size, history_size_tag)
+LIBV_IMPLEMENT_SELECT_MODUL(select_history_size, is_history_size)
+LIBV_IMPLEMENT_SELECT_MODUL_OR_DEAFULT(select_history_size_or, is_history_size)
+
 // =================================================================================================
 
-//template <typename>
-//struct signal_traits;
-//
-//template <typename Signal, typename R, typename... Args, typename... Moduls>
-//struct signal_traits<Signal<R(Args...), Moduls...>> {
-////	using accumulator = select_accumulator_or<AccumulatorSum<R>, Moduls...>;
-////	using thread_policy = select_thread_policy_or<SingleThread, Moduls...>;
-//	using signature = R(Args...);
-//};
+template <typename>
+struct signal_traits;
 
 // -------------------------------------------------------------------------------------------------
 
