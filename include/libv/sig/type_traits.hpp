@@ -24,17 +24,20 @@ using enable_if_t = typename std::enable_if<T::value>::type;
 template <typename T>
 using disable_if_t = typename std::enable_if<!T::value>::type;
 
+template <typename T>
+using remove_reference_t = typename std::remove_reference<T>::type;
+
 // -------------------------------------------------------------------------------------------------
 
 template <typename... Type>
-struct deafults {
+struct deafult {
 };
 
 template <typename... Types>
 struct pack {
 };
 
-// -------------------------------------------------------------------------------------------------
+// =================================================================================================
 
 template <template<typename...> class, typename...>
 struct find_first;
@@ -61,7 +64,7 @@ struct find_first<Predicate, Head, Tail...> {
 			>::type;
 };
 
-// -------------------------------------------------------------------------------------------------
+// =================================================================================================
 
 #define LIBV_IMPLEMENT_HAS_TAG(Name, Tag) \
 template <typename T, typename = void> struct Name : std::false_type {}; \
@@ -93,6 +96,18 @@ LIBV_IMPLEMENT_SELECT_MODUL_OR_DEAFULT(select_accumulator_or, is_accumulator)
 LIBV_IMPLEMENT_HAS_TAG(is_thread_policy, thread_policy_tag)
 LIBV_IMPLEMENT_SELECT_MODUL(select_thread_policy, is_thread_policy)
 LIBV_IMPLEMENT_SELECT_MODUL_OR_DEAFULT(select_thread_policy_or, is_thread_policy)
+
+// =================================================================================================
+
+//template <typename>
+//struct signal_traits;
+//
+//template <typename Signal, typename R, typename... Args, typename... Moduls>
+//struct signal_traits<Signal<R(Args...), Moduls...>> {
+////	using accumulator = select_accumulator_or<AccumulatorSum<R>, Moduls...>;
+////	using thread_policy = select_thread_policy_or<SingleThread, Moduls...>;
+//	using signature = R(Args...);
+//};
 
 // -------------------------------------------------------------------------------------------------
 

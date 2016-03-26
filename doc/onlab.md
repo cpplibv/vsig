@@ -48,6 +48,13 @@ Még a legerőssebb warrning szinteken is warrning nélkül fordul. (Tesztelve: 
 
 ### Examples
 
+### Usage
+#### Aliasing
+Három rétegű implementáció:
+Implementáció: SignalImpl
+Modul / traits selection: Signal<SingleThread> === SignalImpl<void(void), SingleThread>
+Sugar coating: Signal<int> === Signal<void(int)>
+
 ### Project hierarchy
 bin
 build

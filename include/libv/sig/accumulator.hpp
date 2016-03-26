@@ -26,12 +26,6 @@ namespace libv {
 
 // -------------------------------------------------------------------------------------------------
 
-struct AccumulatorVoid {
-	using accumulator_tag = void;
-};
-
-// -------------------------------------------------------------------------------------------------
-
 template <typename T>
 struct AccumulatorSum {
 	using accumulator_tag = void;

@@ -120,14 +120,12 @@ public:
 protected:
 	template <typename R2 = RType, typename = enable_if_t<std::is_void<R2>>>
 	RType fireImpl(Args... args) {
-		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
 		for (auto& output : outputs) {
 			output.second(std::forward<Args>(args)...);
 		}
 	}
 	template <typename R2 = RType, typename = disable_if_t<std::is_void<R2>>>
 	RType fireImpl(Args... args, int /*ignored*/ = 0) {
-		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
 		auto accumulator = Accumulator();
 		for (auto& output : outputs) {
 			if (!accumulator.add(output.second(std::forward<Args>(args)...)))
@@ -215,18 +213,18 @@ class SignalImpl : public SignalBaseImpl<Accumulator, ThreadPolicy, RType, Args.
 public:
 	SignalImpl() = default;
 	SignalImpl(const SelfType& other) = delete;
-
-	// ---------------------------------------------------------------------------------------------
 public:
 	inline RType fire(Args... args) {
+		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
 		return this->fireImpl(std::forward<Args>(args)...);
 	}
 	inline RType operator()(Args... args) {
+		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
 		return this->fireImpl(std::forward<Args>(args)...);
 	}
 };
 
-// === SwitchSignal ===========================================================================
+// === SwitchSignal ================================================================================
 
 template <typename Accumulator, typename ThreadPolicy, typename RType, typename... Args>
 struct SwitchSignalImpl : public SignalBaseImpl<Accumulator, ThreadPolicy, RType, Args...> {
@@ -318,7 +316,7 @@ template<template <typename...> class Signal,
 		typename... Moduls>
 struct SignalAliasHelper<
 		Signal, R(Args...),
-		deafults<DefaultModuls...>,
+		deafult<DefaultModuls...>,
 		Moduls...> {
 	using type = Signal<
 			select_accumulator_or<select_accumulator<DefaultModuls...>, Moduls...>,
@@ -329,77 +327,70 @@ struct SignalAliasHelper<
 template<template <typename...> class Signal, typename... Types>
 using SignalAliasHelper_t = typename SignalAliasHelper<Signal, Types...>::type;
 
+template<typename SignalBase>
+struct SignalAliasHelperUsingCtor : SignalBase {
+	using SignalBase::SignalBase;
+};
+
+template<template <typename...> class Signal, typename... Types>
+using SignalAliasHelperUsingCtor_t =
+		SignalAliasHelperUsingCtor<SignalAliasHelper_t<Signal, Types...>>;
+
 // Signal ------------------------------------------------------------------------------------------
 
 template<typename... Args>
-struct Signal :
-	public SignalAliasHelper_t<SignalImpl, void(Args...),
-			deafults<AccumulatorVoid, SingleThread>> {
-	using SignalAliasHelper_t<SignalImpl, void(Args...),
-			deafults<AccumulatorVoid, SingleThread>>::SignalAliasHelper_t;
+struct Signal : Signal<void(Args...)> {
 };
 
 template<typename R, typename... Args, typename... Moduls>
 struct Signal<R(Args...), Moduls...> :
-	public SignalAliasHelper_t<SignalImpl, R(Args...),
-			deafults<AccumulatorSum<R>, SingleThread>, Moduls...> {
-	using SignalAliasHelper_t<SignalImpl, R(Args...),
-			deafults<AccumulatorSum<R>, SingleThread>, Moduls...>::SignalAliasHelper_t;
+	SignalAliasHelperUsingCtor_t<
+			SignalImpl, R(Args...),
+			deafult<AccumulatorSum<R>, SingleThread>,
+			Moduls...> {
 };
 
 // CapacitivSignal ---------------------------------------------------------------------------------
 
 template<typename... Args>
-struct CapacitivSignal :
-	public SignalAliasHelper_t<CapacitivSignalImpl, void(Args...),
-			deafults<AccumulatorVoid, SingleThread>> {
-	using SignalAliasHelper_t<CapacitivSignalImpl, void(Args...),
-			deafults<AccumulatorVoid, SingleThread>>::SignalAliasHelper_t;
+struct CapacitivSignal : CapacitivSignal<void(Args...)> {
 };
 
 template<typename R, typename... Args, typename... Moduls>
 struct CapacitivSignal<R(Args...), Moduls...> :
-	public SignalAliasHelper_t<CapacitivSignalImpl, void(Args...),
-			deafults<AccumulatorVoid, SingleThread>, Moduls...> {
-	using SignalAliasHelper_t<CapacitivSignalImpl, void(Args...),
-			deafults<AccumulatorVoid, SingleThread>, Moduls...>::SignalAliasHelper_t;
+	SignalAliasHelperUsingCtor_t<
+			CapacitivSignalImpl, R(Args...),
+			deafult<AccumulatorSum<R>, SingleThread>,
+			Moduls...> {
 	// TODO P4: R should always be void. Assert it.
 };
 
 // SwitchSignal ------------------------------------------------------------------------------------
 
 template<typename... Args>
-struct SwitchSignal :
-	public SignalAliasHelper_t<SwitchSignalImpl, void(Args...),
-			deafults<AccumulatorVoid, SingleThread>> {
-	using SignalAliasHelper_t<SwitchSignalImpl, void(Args...),
-			deafults<AccumulatorVoid, SingleThread>>::SignalAliasHelper_t;
+struct SwitchSignal : SwitchSignal<void(Args...)> {
 };
 
 template<typename R, typename... Args, typename... Moduls>
 struct SwitchSignal<R(Args...), Moduls...> :
-	public SignalAliasHelper_t<SwitchSignalImpl, R(Args...),
-			deafults<AccumulatorSum<R>, SingleThread>, Moduls...> {
-	using SignalAliasHelper_t<SwitchSignalImpl, R(Args...),
-			deafults<AccumulatorSum<R>, SingleThread>, Moduls...>::SignalAliasHelper_t;
+	SignalAliasHelperUsingCtor_t<
+			SwitchSignalImpl, R(Args...),
+			deafult<AccumulatorSum<R>, SingleThread>,
+			Moduls...> {
 };
 
 // HistorySignal -----------------------------------------------------------------------------------
 
 template<typename... Args>
-struct HistorySignal :
-	public SignalAliasHelper_t<HistorySignalImpl, void(Args...),
-			deafults<AccumulatorVoid, SingleThread>> {
-	using SignalAliasHelper_t<HistorySignalImpl, void(Args...),
-			deafults<AccumulatorVoid, SingleThread>>::SignalAliasHelper_t;
+struct HistorySignal : HistorySignal<void(Args...)> {
 };
 
 template<typename R, typename... Args, typename... Moduls>
 struct HistorySignal<R(Args...), Moduls...> :
-	public SignalAliasHelper_t<HistorySignalImpl, R(Args...),
-			deafults<AccumulatorVoid, SingleThread>, Moduls...> {
-	using SignalAliasHelper_t<HistorySignalImpl, R(Args...),
-			deafults<AccumulatorVoid, SingleThread>, Moduls...>::SignalAliasHelper_t;
+	SignalAliasHelperUsingCtor_t<
+			HistorySignalImpl, R(Args...),
+			deafult<AccumulatorSum<R>, SingleThread>,
+			Moduls...> {
 	// TODO P4: R should always be void. Assert it.
 };
 

@@ -1,14 +1,19 @@
 // Stack -------------------------------------------------------------------------------------------
 
 -- commit
-History Signal should be inheriting from capacitiv one, or at least from baseasnyc one... You know what...
 Implement SignalAsyncBase. This will reduce redundancy
+-- commit
+Moduls and type traits
 -- commit
 Implement more shit (SignalTypes)
 -- commit
 Find base classes
 -- commit
 Accumulator different _real_ return type then given
+-- commit
+Collapse Signal-s output override
+-- commit
+Trackable type ereaser instead of inheritance
 
 // -------------------------------------------------------------------------------------------------
 
@@ -25,3 +30,15 @@ Signal Connection Marker
 
 
 http://gcc.godbolt.org/
+
+
+
+CTVF compile-time virtual function:
+	CRTP and a helper layer with sfiane for correct function overload selection in derived
+
+wrapper identity for nesting template type
+	member template type to bypass template template type syntax
+
+traits
+
+implement CTVF
