@@ -1,14 +1,10 @@
 // Stack -------------------------------------------------------------------------------------------
 
+API / CompileTime virtual
+-- commit
 Collapse Signal-s output override
 -- commit
-History signal output auto-flush
--- commit
-Implement SignalAsyncBase. This will reduce redundancy
--- commit
 Implement more shit (SignalTypes)
--- commit
-Find base classes
 -- commit
 Accumulator different _real_ return type then given
 -- commit
@@ -20,6 +16,11 @@ Use historyMax
 maybe hide signal "internal" types
 -- commit
 sort moduls from aliases
+elimante multiple realization of the same signal if default parameter is set or not by moduls...
+this will may bring back the traits in some form...
+-- commit
+inline RType fire(Args... args) ... //Where is my template?... NOWHERE! And that should stay in nowhere land...
+the conversion is perfect if happens outside of my function call! It will happen. then i dont care where.
 -- commit
 
 // -------------------------------------------------------------------------------------------------

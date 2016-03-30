@@ -33,6 +33,7 @@
 // TODO P3: Add precise assertions for correct module number: 0-1 acc, 0-1 thread, 0-1 callsyntax
 // TODO P5: Implement position independent call syntax
 // TODO P5: Fully generalize modules (including remove macros?, or improving them)
+// TODO P5: History signal output auto-flush thread safety, how it is? Dependent on fire thread safety..?
 
 // TODO P5: AdaptivSignal [in/out]put (same, generic lambda...)
 // TODO P5: RoutingSignal [set/get]Condition(SignalRouter)
@@ -164,42 +165,47 @@ public:
 	}
 
 	// ---------------------------------------------------------------------------------------------
-//	template<typename SignalType, typename = enable_if_t<is_signal<SignalType>>>
+//	template <typename SignalType, typename = enable_if_t<is_signal<SignalType>>>
 //	inline void input(SignalType& sig) {
 //		sig.output(this);
 //	}
-//	template<typename SignalType, typename = enable_if_t<is_signal<SignalType>>>
+//	template <typename SignalType, typename = enable_if_t<is_signal<SignalType>>>
 //	inline void input(SignalType* const sig) {
 //		sig->output(this);
 //	}
 
 	// ---------------------------------------------------------------------------------------------
-	inline void output(const std::function<RType(Args...)>& func) {
+	template <typename Func>
+	inline void output(Func&& func) {
 		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
-		outputs.emplace(nullptr, func);
+		outputs.emplace(nullptr, std::forward<Func>(func));
+		//TODO P4: static assert for callable RType(Args...)
+		//TODO P4: handle if F is derived from Trackable
 	}
-	template<typename Object, typename Derivered>
+	template <typename Object, typename Derivered>
 	inline void output(RType(Object::*func)(Args...), Derivered& obj) {
 		output(func, &obj);
 	}
-	template<typename Object, typename Derivered>
+	template <typename Object, typename Derivered>
 	void output(RType(Object::*func)(Args...), Derivered* obj) {
 		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
 		static_assert(std::is_base_of<TrackableBase, Object>::value,
 				"Object type has to be Derived from TrackableBase "
 				"(You may want to consider inheriting from libv::Trackable).");
+//		static_assert(std::is_base_of<Object, Derivered>::value,
+//				"Member function has to be the derived member's function as Object");
 		outputs.emplace(obj, [obj, func](Args... args) {
 			(obj->*func)(std::forward<Args>(args)...);
 		});
 		static_cast<TrackableBase*> (obj)->connect(this, true);
-
 		//TODO P4: enforce Deriver base of Object
+		//		for this start with some unit tests: base/base derived/base base/derived derived/derived
 	}
-	template<typename SignalType, typename = enable_if_t<is_signal<SignalType>>>
+	template <typename SignalType, typename = enable_if_t<is_signal<SignalType>>>
 	inline void output(SignalType& slot) {
 		this->output(&slot);
 	}
-	template<typename SignalType, typename = enable_if_t<is_signal<SignalType>>>
+	template <typename SignalType, typename = enable_if_t<is_signal<SignalType>>>
 	inline void output(SignalType* const slot) {
 		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
 		this->output(&SignalType::fire, slot);
@@ -309,25 +315,54 @@ class HistorySignalImpl;
 template <typename RType, typename... Args, typename... Moduls>
 class HistorySignalImpl<RType(Args...), pack<Moduls...>> : public SignalBaseImpl<RType(Args...), pack<Moduls...>> {
 public:
+	using base = SignalBaseImpl<RType(Args...), pack<Moduls...>>;
 	using this_type = HistorySignalImpl<RType(Args...), pack<Moduls...>>;
 	static constexpr size_t historySizeMax = select_history_size_or<history_size<0>, Moduls...>::value;
 
 private:
 	std::vector<std::tuple<typename std::remove_reference<Args>::type...>> history;
 private:
-	template<typename F, std::size_t... Is>
+	template <typename F, std::size_t... Is>
 	inline void flushHelper(F&& func, std::index_sequence<Is...>) {
 		for (auto& item : history) {
 			func(std::get<Is>(item)...);
 		}
 	}
 public:
-	//TODO P5: History signal output auto-flush
-//	template<typename... OutputArgs>
-//	void output(OutputArgs&&... outputArgs) {
-//		SignalBaseImpl<RType(Args...), pack<Moduls...>>::output(std::forward<OutputArgs>(outputArgs)...);
-//		flushHelper(std::index_sequence_for<Args...>{});
-//	}
+	template <typename F>
+	inline void output(F&& func) {
+		flushHelper(func, std::index_sequence_for<Args...>{});
+		base::output(std::forward<F>(func));
+	}
+	template <typename Object, typename Derivered>
+	inline void output(RType(Object::*func)(Args...), Derivered& obj) {
+		flushHelper([=](Args... args){
+			obj.*func(args...);
+		}, std::index_sequence_for<Args...>{});
+		base::output(func, &obj);
+	}
+	template <typename Object, typename Derivered>
+	void output(RType(Object::*func)(Args...), Derivered* obj) {
+		flushHelper([=](Args... args){
+			obj->*func(args...);
+		}, std::index_sequence_for<Args...>{});
+		base::output(func, obj);
+	}
+	template <typename SignalType, typename = enable_if_t<is_signal<SignalType>>>
+	inline void output(SignalType& slot) {
+		flushHelper([=](Args... args){
+			slot(args...);
+		}, std::index_sequence_for<Args...>{});
+		base::output(&slot);
+	}
+	template <typename SignalType, typename = enable_if_t<is_signal<SignalType>>>
+	inline void output(SignalType* const slot) {
+		flushHelper([=](Args... args){
+			*slot(args...);
+		}, std::index_sequence_for<Args...>{});
+		base::output(slot);
+	}
+
 	inline size_t historySize() const {
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
 		return history.size();
@@ -348,44 +383,24 @@ public:
 
 // === Aliases =====================================================================================
 
-//template<template <typename...> class, typename...>
-//struct SignalAliasHelper;
-//
-//template<template <typename...> class Signal, typename R, typename... Args, typename... Moduls>
-//struct SignalAliasHelper<Signal, R(Args...),Moduls...> {
-//	using type = Signal<R(Args...), pack<Moduls...>>;
-//};
-//
-//template<template <typename...> class Signal, typename... Types>
-//using SignalAliasHelper_t = typename SignalAliasHelper<Signal, Types...>::type;
-//
-//template<typename SignalBase>
-//struct SignalAliasHelperUsingCtor : SignalBase {
-//	using SignalBase::SignalBase;
-//};
-//
-//template<template <typename...> class Signal, typename... Types>
-//using SignalAliasHelperUsingCtor_t =
-//		SignalAliasHelperUsingCtor<SignalAliasHelper_t<Signal, Types...>>;
-
 // Signal ------------------------------------------------------------------------------------------
 
-template<typename... Args>
+template <typename... Args>
 struct Signal : Signal<void(Args...)> {
 };
 
-template<typename R, typename... Args, typename... Moduls>
+template <typename R, typename... Args, typename... Moduls>
 struct Signal<R(Args...), Moduls...> :
 	SignalImpl<R(Args...), pack<Moduls...>> {
 };
 
 // CapacitivSignal ---------------------------------------------------------------------------------
 
-template<typename... Args>
+template <typename... Args>
 struct CapacitivSignal : CapacitivSignal<void(Args...)> {
 };
 
-template<typename R, typename... Args, typename... Moduls>
+template <typename R, typename... Args, typename... Moduls>
 struct CapacitivSignal<R(Args...), Moduls...> :
 	CapacitivSignalImpl<R(Args...), pack<Moduls...>> {
 	// TODO P4: R should always be void. Assert it.
@@ -393,22 +408,22 @@ struct CapacitivSignal<R(Args...), Moduls...> :
 
 // SwitchSignal ------------------------------------------------------------------------------------
 
-template<typename... Args>
+template <typename... Args>
 struct SwitchSignal : SwitchSignal<void(Args...)> {
 };
 
-template<typename R, typename... Args, typename... Moduls>
+template <typename R, typename... Args, typename... Moduls>
 struct SwitchSignal<R(Args...), Moduls...> :
 	SwitchSignalImpl<R(Args...), pack<Moduls...>> {
 };
 
 // HistorySignal -----------------------------------------------------------------------------------
 
-template<typename... Args>
+template <typename... Args>
 struct HistorySignal : HistorySignal<void(Args...)> {
 };
 
-template<typename R, typename... Args, typename... Moduls>
+template <typename R, typename... Args, typename... Moduls>
 struct HistorySignal<R(Args...), Moduls...> :
 	HistorySignalImpl<R(Args...), pack<Moduls...>> {
 	// TODO P4: R should always be void. Assert it.
