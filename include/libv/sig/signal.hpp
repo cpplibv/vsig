@@ -90,22 +90,14 @@ namespace libv {
 template <typename...>
 class SignalBaseImpl;
 
-template <typename R, typename... Args, typename... Moduls>
-struct signal_traits<SignalBaseImpl<R(Args...), pack<Moduls...>>> {
-	using accumulator = select_accumulator_or<AccumulatorSum<R>, Moduls...>;
-	using thread_policy = select_thread_policy_or<SingleThread, Moduls...>;
-	using signature = R(Args...);
-};
-
 template <typename RType, typename... Args, typename... Moduls>
 class SignalBaseImpl<RType(Args...), pack<Moduls...>> : public TrackableBase {
 public:
 	using signal_tag = void;
 	using this_type = SignalBaseImpl<RType(Args...), pack<Moduls...>>;
 
-	using accumulator = typename signal_traits<this_type>::accumulator;
-	using thread_policy = typename signal_traits<this_type>::thread_policy;
-	using signature = typename signal_traits<this_type>::signature;
+	using accumulator = select_accumulator_or<AccumulatorSum<RType>, Moduls...>;
+	using thread_policy = select_thread_policy_or<SingleThread, Moduls...>;
 
 protected:
 	thread_policy threadPolicy;
@@ -314,18 +306,11 @@ struct history_size {
 template <typename...>
 class HistorySignalImpl;
 
-template <typename R, typename... Args, typename... Moduls>
-struct signal_traits<HistorySignalImpl<R(Args...), pack<Moduls...>>> :
-	signal_traits<SignalBaseImpl<R(Args...), pack<Moduls...>>> {
-
-	using history_size = select_history_size_or<history_size<0>, Moduls...>;
-};
-
 template <typename RType, typename... Args, typename... Moduls>
 class HistorySignalImpl<RType(Args...), pack<Moduls...>> : public SignalBaseImpl<RType(Args...), pack<Moduls...>> {
 public:
 	using this_type = HistorySignalImpl<RType(Args...), pack<Moduls...>>;
-	static constexpr size_t historyMax = signal_traits<this_type>::history_size::value;
+	static constexpr size_t historySizeMax = select_history_size_or<history_size<0>, Moduls...>::value;
 
 private:
 	std::vector<std::tuple<typename std::remove_reference<Args>::type...>> history;
@@ -337,11 +322,12 @@ private:
 		}
 	}
 public:
-	// TODO P5: History signal output auto-flush
-	//	template<typename... Args>
-	//	void output(Args... args) {
-	//		flushHelper(std::index_sequence_for<Args...>{});
-	//	}
+	//TODO P5: History signal output auto-flush
+//	template<typename... OutputArgs>
+//	void output(OutputArgs&&... outputArgs) {
+//		SignalBaseImpl<RType(Args...), pack<Moduls...>>::output(std::forward<OutputArgs>(outputArgs)...);
+//		flushHelper(std::index_sequence_for<Args...>{});
+//	}
 	inline size_t historySize() const {
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
 		return history.size();

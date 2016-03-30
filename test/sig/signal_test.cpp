@@ -436,12 +436,12 @@ TEST_CASE("HistorySignal Test") {
 		CHECK(std::get<0>(result[0]) == 42);
 	}
 
-	//	SECTION("Fire before connection result output from histroy") {
-	//		source.fire(42);
-	//		source.output(spyInto<void, int>(result));
-	//		REQUIRE(result.size() == 1u);
-	//		CHECK(std::get<0>(result[0]) == 42);
-	//	}
+	SECTION("Fire before connection result output from histroy") {
+		source.fire(42);
+		source.output(spyInto<void, int>(result));
+		REQUIRE(result.size() == 1u);
+		CHECK(std::get<0>(result[0]) == 42);
+	}
 
 	SECTION("Connection with cleared history result no output") {
 		source.fire(42);

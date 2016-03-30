@@ -101,11 +101,6 @@ LIBV_IMPLEMENT_HAS_TAG(is_history_size, history_size_tag)
 LIBV_IMPLEMENT_SELECT_MODUL(select_history_size, is_history_size)
 LIBV_IMPLEMENT_SELECT_MODUL_OR_DEAFULT(select_history_size_or, is_history_size)
 
-// =================================================================================================
-
-template <typename>
-struct signal_traits;
-
 // -------------------------------------------------------------------------------------------------
 
 } //namespace libv
