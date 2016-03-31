@@ -137,8 +137,20 @@ TEST_CASE("SignalConnectionSignalLifeTime") {
 		Signal<> target;
 		source.output(target);
 		CHECK(source.outputSize() == 1u);
+		CHECK(target.inputSize() == 1u);
 	}
 	CHECK(source.outputSize() == 0u);
+}
+
+TEST_CASE("SignalConnectionSignalLifeTime 2") {
+	Signal<> target;
+	{
+		Signal<> source;
+		source.output(target);
+		CHECK(source.outputSize() == 1u);
+		CHECK(target.inputSize() == 1u);
+	}
+	CHECK(target.inputSize() == 0u);
 }
 
 TEST_CASE("SignalConnectionTrackableLifeTime") {
@@ -147,8 +159,20 @@ TEST_CASE("SignalConnectionTrackableLifeTime") {
 		dummyType<> dummyTarget;
 		source.output(&dummyType<>::memberFunction, dummyTarget);
 		CHECK(source.outputSize() == 1u);
+		CHECK(dummyTarget.connectionCount() == 1u);
 	}
 	CHECK(source.outputSize() == 0u);
+}
+
+TEST_CASE("SignalConnectionTrackableLifeTime 2") {
+	dummyType<> dummyTarget;
+	{
+		Signal<> source;
+		source.output(&dummyType<>::memberFunction, dummyTarget);
+		CHECK(source.outputSize() == 1u);
+		CHECK(dummyTarget.connectionCount() == 1u);
+	}
+	CHECK(dummyTarget.connectionCount() == 0u);
 }
 
 TEST_CASE("SignalConnectionGlobalLifeTime") {

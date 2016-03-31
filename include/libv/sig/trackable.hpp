@@ -9,6 +9,10 @@ namespace libv {
 // -------------------------------------------------------------------------------------------------
 
 struct TrackableBase {
+	// If either way does not matter who calls who i would like to fixate this:
+	// Sequence:
+	// 1st: target connect to source, reflect = true
+	// 2nd: source connect to target, reflect = false
 	virtual void connect(TrackableBase* ptr, bool reflect) = 0;
 	virtual void disconnect(TrackableBase* ptr, bool reflect) = 0;
 	virtual ~TrackableBase() { }
@@ -36,6 +40,10 @@ private:
 			ptr->disconnect(this, false);
 	}
 protected:
+	inline size_t connectionCount() const{
+		return connections.size();
+		// TODO P5: Fix this connection count or remove it, i dropped it here for tests
+	}
 	inline void disconnectAll() {
 		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
 		while (!connections.empty())

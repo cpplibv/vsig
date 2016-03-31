@@ -109,8 +109,11 @@ protected:
 protected:
 	virtual void connect(TrackableBase* ptr, bool reflect = true) override {
 		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
-		if (reflect)
+
+		if (reflect) {
+			inputs.emplace(ptr);
 			ptr->connect(this, false);
+		}
 	}
 	virtual void disconnect(TrackableBase* ptr, bool reflect = true) override {
 		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
@@ -181,6 +184,8 @@ public:
 		outputs.emplace(nullptr, std::forward<Func>(func));
 		//TODO P4: static assert for callable RType(Args...)
 		//TODO P4: handle if F is derived from Trackable
+		//TODO P4: sfiane for std function?, ehh... this overload will need sfiane if i collapse
+		//		output signal into this...
 	}
 	template <typename Object, typename Derivered>
 	inline void output(RType(Object::*func)(Args...), Derivered& obj) {
@@ -192,24 +197,23 @@ public:
 		static_assert(std::is_base_of<TrackableBase, Object>::value,
 				"Object type has to be Derived from TrackableBase "
 				"(You may want to consider inheriting from libv::Trackable).");
-//		static_assert(std::is_base_of<Object, Derivered>::value,
-//				"Member function has to be the derived member's function as Object");
+		//static_assert(std::is_base_of<Object, Derivered>::value,
+		//		"Member function has to be the derived member's function as Object");
+		//TODO P4: enforce Deriver base of Object
+		//		for this start with some unit tests: base/base derived/base base/derived derived/derived
+
 		outputs.emplace(obj, [obj, func](Args... args) {
 			(obj->*func)(std::forward<Args>(args)...);
 		});
 		static_cast<TrackableBase*> (obj)->connect(this, true);
-		//TODO P4: enforce Deriver base of Object
-		//		for this start with some unit tests: base/base derived/base base/derived derived/derived
 	}
 	template <typename SignalType, typename = enable_if_t<is_signal<SignalType>>>
 	inline void output(SignalType& slot) {
-		this->output(&slot);
+		this->output(&SignalType::fire, &slot);
 	}
 	template <typename SignalType, typename = enable_if_t<is_signal<SignalType>>>
 	inline void output(SignalType* const slot) {
-		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
 		this->output(&SignalType::fire, slot);
-		slot->inputs.emplace(this);
 	}
 
 	// ---------------------------------------------------------------------------------------------

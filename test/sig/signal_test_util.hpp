@@ -58,5 +58,6 @@ R dummyGlobalFunction(Args...) { }
 template<typename R = void, typename... Args>
 struct dummyType : public libv::Trackable {
 	R memberFunction(Args...) { }
+	using libv::Trackable::connectionCount;
 	static R staticFunction(Args...) { }
 };
