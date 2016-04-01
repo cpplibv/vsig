@@ -187,18 +187,18 @@ public:
 		//TODO P4: sfiane for std function?, ehh... this overload will need sfiane if i collapse
 		//		output signal into this...
 	}
-	template <typename Object, typename Derivered>
-	inline void output(RType(Object::*func)(Args...), Derivered& obj) {
-		output(func, &obj);
+	template <typename Derivered, typename Object = Derivered>
+	inline void output(Derivered& obj, RType(Object::*func)(Args...) = &Object::operator()) {
+		output(&obj, func);
 	}
-	template <typename Object, typename Derivered>
-	void output(RType(Object::*func)(Args...), Derivered* obj) {
+	template <typename Derivered, typename Object = Derivered>
+	inline void output(Derivered* obj, RType(Object::*func)(Args...) = &Object::operator()) {
 		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
 		static_assert(std::is_base_of<TrackableBase, Object>::value,
 				"Object type has to be Derived from TrackableBase "
 				"(You may want to consider inheriting from libv::Trackable).");
-		//static_assert(std::is_base_of<Object, Derivered>::value,
-		//		"Member function has to be the derived member's function as Object");
+		static_assert(std::is_base_of<Object, Derivered>::value,
+				"Member function has to be the derived member's function as Object");
 		//TODO P4: enforce Deriver base of Object
 		//		for this start with some unit tests: base/base derived/base base/derived derived/derived
 
@@ -206,14 +206,6 @@ public:
 			(obj->*func)(std::forward<Args>(args)...);
 		});
 		static_cast<TrackableBase*> (obj)->connect(this, true);
-	}
-	template <typename SignalType, typename = enable_if_t<is_signal<SignalType>>>
-	inline void output(SignalType& slot) {
-		this->output(&SignalType::fire, &slot);
-	}
-	template <typename SignalType, typename = enable_if_t<is_signal<SignalType>>>
-	inline void output(SignalType* const slot) {
-		this->output(&SignalType::fire, slot);
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -242,8 +234,7 @@ public:
 		return this->fireImpl(std::forward<Args>(args)...);
 	}
 	inline RType operator()(Args... args) {
-		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
-		return this->fireImpl(std::forward<Args>(args)...);
+		fire(std::forward<Args>(args)...);
 	}
 };
 
@@ -273,6 +264,9 @@ public:
 			return this->fireImpl(std::forward<Args>(args)...);
 		return RType();
 	}
+	inline RType operator()(Args... args) {
+		fire(std::forward<Args>(args)...);
+	}
 };
 
 // === CapacitivSignal =============================================================================
@@ -298,6 +292,9 @@ public:
 	inline void fire(Args... args) {
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
 		argQue.emplace_back(args...);
+	}
+	inline RType operator()(Args... args) {
+		fire(std::forward<Args>(args)...);
 	}
 	inline void flush() {
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
@@ -338,35 +335,17 @@ public:
 		flushHelper(func, std::index_sequence_for<Args...>{});
 		base::output(std::forward<F>(func));
 	}
-	template <typename Object, typename Derivered>
-	inline void output(RType(Object::*func)(Args...), Derivered& obj) {
-		flushHelper([=](Args... args){
-			obj.*func(args...);
-		}, std::index_sequence_for<Args...>{});
-		base::output(func, &obj);
+	template <typename Derivered, typename Object = Derivered>
+	inline void output(Derivered& obj, RType(Object::*func)(Args...) = &Object::operator()) {
+		output(&obj, func);
 	}
-	template <typename Object, typename Derivered>
-	void output(RType(Object::*func)(Args...), Derivered* obj) {
+	template <typename Derivered, typename Object = Derivered>
+	inline void output(Derivered* obj, RType(Object::*func)(Args...) = &Object::operator()) {
 		flushHelper([=](Args... args){
-			obj->*func(args...);
+			(obj->*func)(args...);
 		}, std::index_sequence_for<Args...>{});
-		base::output(func, obj);
+		base::output(obj, func);
 	}
-	template <typename SignalType, typename = enable_if_t<is_signal<SignalType>>>
-	inline void output(SignalType& slot) {
-		flushHelper([=](Args... args){
-			slot(args...);
-		}, std::index_sequence_for<Args...>{});
-		base::output(&slot);
-	}
-	template <typename SignalType, typename = enable_if_t<is_signal<SignalType>>>
-	inline void output(SignalType* const slot) {
-		flushHelper([=](Args... args){
-			*slot(args...);
-		}, std::index_sequence_for<Args...>{});
-		base::output(slot);
-	}
-
 	inline size_t historySize() const {
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
 		return history.size();
@@ -378,6 +357,9 @@ public:
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
 		history.emplace_back(args...);
 		this->fireImpl(args...);
+	}
+	inline RType operator()(Args... args) {
+		fire(std::forward<Args>(args)...);
 	}
 	inline void clearHistory() {
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);

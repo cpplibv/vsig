@@ -2,11 +2,7 @@
 
 API / CompileTime virtual
 -- commit
-Collapse Signal-s output override
-With the previous commit there could be a way to implement it but in more generic based on
-void output(RType(Object::*func)(Args...), Derivered* obj)
-to
-void output(Derivered* obj, RType(Object::*func)(Args...) = &Object::operator())
+collapse operator() and output(&O, D::f) into base. CRTP required
 -- commit
 Implement more shit (SignalTypes)
 -- commit

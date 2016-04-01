@@ -61,3 +61,13 @@ struct dummyType : public libv::Trackable {
 	using libv::Trackable::connectionCount;
 	static R staticFunction(Args...) { }
 };
+
+// -------------------------------------------------------------------------------------------------
+
+template <template <typename...> class F, typename Source, typename Target>
+void test_type_permutator_2() {
+	F<Source, Source>()();
+	F<Source, Target>()();
+	F<Target, Target>()();
+	F<Target, Source>()();
+}

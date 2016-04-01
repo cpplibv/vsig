@@ -6,10 +6,14 @@
 #include <libv/sig/signal.hpp>
 #include <thread>
 
+// -------------------------------------------------------------------------------------------------
+
 using libv::Signal;
 using libv::CapacitivSignal;
 using libv::SwitchSignal;
 using libv::HistorySignal;
+
+// -------------------------------------------------------------------------------------------------
 
 TEST_CASE("SignalConstruct") {
 	Signal<> testObj;
@@ -20,6 +24,7 @@ TEST_CASE("SignalConstruct") {
 
 // --- Input / Output ------------------------------------------------------------------------------
 
+//// Input member function currently disabled
 //TEST_CASE("SignalInputSignal") {
 //	Signal<> source, target;
 //
@@ -36,21 +41,36 @@ TEST_CASE("SignalConstruct") {
 //	CHECK(target.outputSize() == 0u);
 //}
 
-TEST_CASE("SignalOutputSignal") {
-	Signal<> source, target;
+template <typename Source, typename Target>
+struct signal_output_into_signal {
+	void operator()() {
+		Source source;
+		Target target;
 
-	source.output(target);
+		source.output(target);
 
-	CHECK(source.inputSize() == 0u);
-	CHECK(source.outputSize() == 1u);
-	CHECK(target.inputSize() == 1u);
-	CHECK(target.outputSize() == 0u);
+		CHECK(source.inputSize() == 0u);
+		CHECK(source.outputSize() == 1u);
+		CHECK(target.inputSize() == 1u);
+		CHECK(target.outputSize() == 0u);
 
-	source.output(&target);
-	CHECK(source.inputSize() == 0u);
-	CHECK(source.outputSize() == 2u);
-	CHECK(target.inputSize() == 2u);
-	CHECK(target.outputSize() == 0u);
+		source.output(&target);
+		CHECK(source.inputSize() == 0u);
+		CHECK(source.outputSize() == 2u);
+		CHECK(target.inputSize() == 2u);
+		CHECK(target.outputSize() == 0u);
+	}
+};
+
+TEST_CASE("Signal output into Signal") {
+	test_type_permutator_2<signal_output_into_signal, Signal<>, CapacitivSignal<>>();
+	test_type_permutator_2<signal_output_into_signal, Signal<>, HistorySignal<>>();
+	test_type_permutator_2<signal_output_into_signal, Signal<>, SwitchSignal<>>();
+
+	test_type_permutator_2<signal_output_into_signal, CapacitivSignal<>, HistorySignal<>>();
+	test_type_permutator_2<signal_output_into_signal, CapacitivSignal<>, SwitchSignal<>>();
+
+	test_type_permutator_2<signal_output_into_signal, HistorySignal<>, SwitchSignal<>>();
 }
 
 TEST_CASE("SignalRelaySignal") {
@@ -120,11 +140,11 @@ TEST_CASE("SignalOutputMemberFunction") {
 	Signal<> source;
 	dummyType<> target;
 
-	source.output(&dummyType<>::memberFunction, target);
+	source.output(target, &dummyType<>::memberFunction);
 	CHECK(source.inputSize() == 0u);
 	CHECK(source.outputSize() == 1u);
 
-	source.output(&dummyType<>::memberFunction, &target);
+	source.output(&target, &dummyType<>::memberFunction);
 	CHECK(source.inputSize() == 0u);
 	CHECK(source.outputSize() == 2u);
 }
@@ -157,7 +177,7 @@ TEST_CASE("SignalConnectionTrackableLifeTime") {
 	Signal<> source;
 	{
 		dummyType<> dummyTarget;
-		source.output(&dummyType<>::memberFunction, dummyTarget);
+		source.output(dummyTarget, &dummyType<>::memberFunction);
 		CHECK(source.outputSize() == 1u);
 		CHECK(dummyTarget.connectionCount() == 1u);
 	}
@@ -168,7 +188,7 @@ TEST_CASE("SignalConnectionTrackableLifeTime 2") {
 	dummyType<> dummyTarget;
 	{
 		Signal<> source;
-		source.output(&dummyType<>::memberFunction, dummyTarget);
+		source.output(dummyTarget, &dummyType<>::memberFunction);
 		CHECK(source.outputSize() == 1u);
 		CHECK(dummyTarget.connectionCount() == 1u);
 	}
