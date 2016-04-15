@@ -32,7 +32,7 @@ TEST_CASE("Default signal accumulator should be sum") {
 
 // -------------------------------------------------------------------------------------------------
 
-TEST_CASE("AccumulatorAnd should logical and shortcut") {
+TEST_CASE("AccumulatorAnd should shortcut") {
 	Signal<bool(), AccumulatorAnd<bool>> signal;
 	int callDepth = 0;
 
@@ -76,7 +76,7 @@ TEST_CASE("AccumulatorAnd should logical and visit all") {
 
 // -------------------------------------------------------------------------------------------------
 
-TEST_CASE("AccumulatorAnd should logical or visit all") {
+TEST_CASE("AccumulatorOr should logical or visit all") {
 	Signal<bool(), AccumulatorOr<bool>> signal;
 	int callDepth = 0;
 
@@ -97,7 +97,7 @@ TEST_CASE("AccumulatorAnd should logical or visit all") {
 	CHECK(callDepth == 3);
 }
 
-TEST_CASE("AccumulatorAnd should logical or shortcut") {
+TEST_CASE("AccumulatorOr should logical or shortcut") {
 	Signal<bool(), AccumulatorOr<bool>> signal;
 	int callDepth = 0;
 
@@ -140,4 +140,86 @@ TEST_CASE("AccumulatorLast should visit all and return last") {
 
 	CHECK(signal.fire() == last);
 	CHECK(callDepth == 3);
+}
+
+// -------------------------------------------------------------------------------------------------
+
+TEST_CASE("Accumulator counter should count outputs") {
+	Signal<int(), AccumulatorCounter<int>> signal;
+	int callDepth = 0;
+
+	signal.output([&] {
+		++callDepth;
+		return 10;
+	});
+	signal.output([&] {
+		++callDepth;
+		return 20;
+	});
+	signal.output([&] {
+		++callDepth;
+		return 30;
+	});
+
+	CHECK(signal.fire() == 3);
+	CHECK(callDepth == 3);
+}
+
+TEST_CASE("Accumulator counter should count outputs even on void") {
+	Signal<void(), AccumulatorCounter<void>> signal;
+	int callDepth = 0;
+
+	signal.output([&] {
+		++callDepth;
+	});
+	signal.output([&] {
+		++callDepth;
+	});
+	signal.output([&] {
+		++callDepth;
+	});
+
+	CHECK(signal.fire() == 3);
+	CHECK(callDepth == 3);
+}
+
+// -------------------------------------------------------------------------------------------------
+
+TEST_CASE("Accumulator limiter should limit outputs") {
+	Signal<int(), AccumulatorLimiter<int, 2>> signal;
+	int callDepth = 0;
+
+	signal.output([&] {
+		++callDepth;
+		return 10;
+	});
+	signal.output([&] {
+		++callDepth;
+		return 20;
+	});
+	signal.output([&] {
+		++callDepth;
+		return 30;
+	});
+
+	CHECK(signal.fire() == 2);
+	CHECK(callDepth == 2);
+}
+
+TEST_CASE("Accumulator limiter should limit outputs even on void") {
+	Signal<void(), AccumulatorLimiter<void, 2>> signal;
+	int callDepth = 0;
+
+	signal.output([&] {
+		++callDepth;
+	});
+	signal.output([&] {
+		++callDepth;
+	});
+	signal.output([&] {
+		++callDepth;
+	});
+
+	CHECK(signal.fire() == 2);
+	CHECK(callDepth == 2);
 }

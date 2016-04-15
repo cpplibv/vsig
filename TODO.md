@@ -2,32 +2,33 @@
 
 API / CompileTime virtual
 -- commit
-collapse operator() and output(&O, D::f) into base. CRTP required
+collapse operator() and output(&O, D::f) onto base. CRTP required
 -- commit
 Implement more shit (SignalTypes)
 -- commit
-Accumulator different _real_ return type then given
--- commit
+Trackable and Trackable API
 Trackable type ereaser instead of inheritance
 This basicly means remove Trackable base class and handle trackable and handle it as concept
 -- commit
 Use historyMax
 -- commit
-maybe hide signal "internal" types
+maybe hide signal "internal" types - just maybe tho
 -- commit
 sort moduls from aliases
-elimante multiple realization of the same signal if default parameter is set or not by moduls...
-this will may bring back the traits in some form...
--- commit
-inline RType fire(Args... args) ... //Where is my template?... NOWHERE! And that should stay in nowhere land...
-the conversion is perfect if happens outside of my function call! It will happen. then i dont care where.
+use soft aliases instead of hard typing (remove inheritance from aliasing)
+eliminate multiple realization of the same signal if default parameter is set or not by moduls...
+this will may bring back the traits in some form... ?
 -- commit
 
 // -------------------------------------------------------------------------------------------------
 
+Rename Accumulator to Combinator?
+Add CombinatorHost?
+
 Trackable interface
-	could it be non virtual?
+	could it be non virtual? at least partially?
 	unite with weak and shared and observer?
+	two headed trackable?
 
 Signal Hub
 Signal Proxy
@@ -38,7 +39,6 @@ Signal Connection Marker
 
 
 http://gcc.godbolt.org/
-
 
 
 CTVF compile-time virtual function:
@@ -54,3 +54,6 @@ implement CTVF
 Different int / class / class id:
 template<class T> int x;
 template<class T> constexpr int* p = &x<T>;
+
+benchmarks:
+https://github.com/NoAvailableAlias/signal-slot-benchmarks

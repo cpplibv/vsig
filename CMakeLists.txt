@@ -20,8 +20,8 @@ message(STATUS "CXX compiler id: ${CMAKE_CXX_COMPILER_ID}")
 # --------------------------------------------------------------------------------------------------
 
 #set(CMAKE_VERBOSE_MAKEFILE off)
-#set(CMAKE_BUILD_TYPE "DEBUG")
-set(CMAKE_BUILD_TYPE "RELEASE")
+set(CMAKE_BUILD_TYPE "DEBUG")
+#set(CMAKE_BUILD_TYPE "RELEASE")
 
 #Definitions
 if(CMAKE_BUILD_TYPE EQUAL "DEBUG")

@@ -27,6 +27,12 @@ using disable_if_t = typename std::enable_if<!T::value>::type;
 template <typename T>
 using remove_reference_t = typename std::remove_reference<T>::type;
 
+template <typename T, typename K>
+using is_same_t = typename std::is_same<T, K>::type;
+
+template <typename T>
+using is_void_t = typename std::is_void<T>::type;
+
 // -------------------------------------------------------------------------------------------------
 
 template <typename... Type>

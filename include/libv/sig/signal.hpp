@@ -2,7 +2,7 @@
 
 #pragma once
 
-#define LIBV_SIGNAL_VERSION 2016030100
+#define LIBV_SIGNAL_VERSION 2016041100
 
 // TODO P1: Use templated containers
 // TODO P1: Use ordered small vector for Signal-Slot-Trackable
@@ -10,8 +10,6 @@
 // 			http://en.cppreference.com/w/cpp/thread/shared_mutex
 //			Or with lock free way, or both...
 // TODO P1: Rework connection and trackable objects
-// TODO P1: RType not 100% the return type of the fire! Use accumulator's chose
-//			This is a very important note.
 // TODO P2: Branch signals into two: sync and async signals, this will ease my pain about them...
 // TODO P2: Forbid && move / review std::forward
 // TODO P2: Change from trackable to shared or weak ptr
@@ -31,6 +29,8 @@
 //			bit of the address can represent the direction!
 // TODO P3: Give static assert for "typos" like: Signal<int, AccumulatorSum<int>, SingleThread>
 // TODO P3: Add precise assertions for correct module number: 0-1 acc, 0-1 thread, 0-1 callsyntax
+// TODO P4: Current accumulator rename to "combined result"? and add a bigger encapsulation
+//			which can provide (through inheritance?) runtime signal non-fire-local store and logic
 // TODO P5: Implement position independent call syntax
 // TODO P5: Fully generalize modules (including remove macros?, or improving them)
 // TODO P5: History signal output auto-flush thread safety, how it is? Dependent on fire thread safety..?
@@ -100,6 +100,9 @@ public:
 	using accumulator = select_accumulator_or<AccumulatorSum<RType>, Moduls...>;
 	using thread_policy = select_thread_policy_or<SingleThread, Moduls...>;
 
+	using return_type = RType;
+	using result_type = typename accumulator_traits<accumulator>::result_type;
+
 protected:
 	thread_policy threadPolicy;
 	mutable std::recursive_mutex mutex;
@@ -130,20 +133,13 @@ public:
 
 	// ---------------------------------------------------------------------------------------------
 protected:
-	template <typename R2 = RType, typename = enable_if_t<std::is_void<R2>>>
-	RType fireImpl(Args... args) {
+	result_type fireImpl(Args... args) {
+		auto acc = accumulator_traits<accumulator>::create();
 		for (auto& output : outputs) {
-			output.second(std::forward<Args>(args)...);
+			if (accumulator_traits<accumulator>::add(acc, output.second, std::forward<Args>(args)...))
+				return accumulator_traits<accumulator>::result(acc);
 		}
-	}
-	template <typename R2 = RType, typename = disable_if_t<std::is_void<R2>>>
-	RType fireImpl(Args... args, int /*ignored*/ = 0) {
-		auto acc = accumulator();
-		for (auto& output : outputs) {
-			if (!acc.add(output.second(std::forward<Args>(args)...)))
-				return acc.result();
-		}
-		return acc.result();
+		return accumulator_traits<accumulator>::result(acc);
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -224,16 +220,17 @@ template <typename RType, typename... Args, typename... Moduls>
 class SignalImpl<RType(Args...), pack<Moduls...>> : public SignalBaseImpl<RType(Args...), pack<Moduls...>> {
 public:
 	using this_type = SignalImpl<RType(Args...), pack<Moduls...>>;
+	using base_type = SignalBaseImpl<RType(Args...), pack<Moduls...>>;
 
 public:
 	SignalImpl() = default;
 	SignalImpl(const this_type& other) = delete;
 public:
-	inline RType fire(Args... args) {
+	inline typename base_type::result_type fire(Args... args) {
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
 		return this->fireImpl(std::forward<Args>(args)...);
 	}
-	inline RType operator()(Args... args) {
+	inline typename base_type::result_type operator()(Args... args) {
 		fire(std::forward<Args>(args)...);
 	}
 };
@@ -293,7 +290,7 @@ public:
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
 		argQue.emplace_back(args...);
 	}
-	inline RType operator()(Args... args) {
+	inline void operator()(Args... args) {
 		fire(std::forward<Args>(args)...);
 	}
 	inline void flush() {

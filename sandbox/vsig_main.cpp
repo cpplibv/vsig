@@ -4,7 +4,7 @@
 #include <type_traits>
 
 #include <libv/sig/type_traits.hpp>
-#include <libv/sig/signal.hpp>
+//#include <libv/sig/signal.hpp>
 
 //// -------------------------------------------------------------------------------------------------
 //
@@ -70,17 +70,80 @@
 //	return 0;
 //}
 
+//using namespace libv;
+//
+//int main(int, char**) {
+//	Signal<> a;
+//	Signal<> b;
+//
+//	a.output(b);
+//
+//	a.fire();
+//
+//	std::cout << "xy" << std::endl;
+//
+//	return 0;
+//}
+
+// -------------------------------------------------------------------------------------------------
+
 using namespace libv;
 
+#include <functional>
+
+//template <typename F, typename... Args, typename I = disable_if_t<std::is_void<result_of_t<F>>>>
+//inline void add(F&& func, Args&&... args, int /*ignored*/ = 0) {
+//	std::cout << "not void" << std::endl;
+//	func(std::forward<Args>(args)...);
+//}
+
+//template <typename F, typename... Args, typename I = enable_if_t<is_void_t<result_of_t<F>>>>
+//inline void add(F&& func, Args&&... args) {
+//	std::cout << "c" << std::endl;
+//	func(std::forward<Args>(args)...);
+//}
+
+struct accumulator_traits {
+	template <typename T>
+	struct _helper {
+		template <typename F, typename... Args>
+		static inline bool add(F&& func, Args&&... args) {
+			std::cout << "non void" << std::endl;
+			func(std::forward<Args>(args)...);
+			return true;
+		}
+	};
+
+};
+template <>
+struct accumulator_traits::_helper<void> {
+	template <typename F, typename... Args>
+	static inline bool add(F&& func, Args&&... args) {
+		std::cout << "void" << std::endl;
+		func(std::forward<Args>(args)...);
+		return true;
+	}
+};
+
+template <typename R, typename... FArgs, typename... Args>
+inline bool add(std::function<R(FArgs...)>& func, Args&&... args) {
+	return accumulator_traits::_helper<R>::add(func, std::forward<Args>(args)...);
+}
+
 int main(int, char**) {
-	Signal<> a;
-	Signal<> b;
+	std::function<int()> f0 = [] { return 42; };
+	std::function<void()> f1 = [] { };
+	std::function<int(int)> f2 = [] (int) { return 42; };
+	std::function<void(int)> f3 = [] (int) { };
 
-	a.output(b);
+	add(f0);
+	add(f1);
+	add(f2, 2);
+	add(f3, 3);
 
-	a.fire();
-
-	std::cout << "xy" << std::endl;
+	//	typename std::result_of<decltype(f)>::type fr = f();
+	//	std::cout << fr << std::endl;
+	std::cout << "-- eof --" << std::endl;
 
 	return 0;
 }
