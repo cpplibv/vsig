@@ -3,6 +3,7 @@
 #pragma once
 
 #include <mutex>
+#include "type_traits.hpp"
 
 // -------------------------------------------------------------------------------------------------
 
@@ -19,7 +20,8 @@ namespace libv {
 // -------------------------------------------------------------------------------------------------
 
 struct SingleThread {
-	using thread_policy_tag = void;
+	using module = tag_type<tag::thread_policy>;
+
 	inline void readLock() { }
 	inline void readUnlock() { }
 	inline void writeLock() { }
@@ -27,7 +29,7 @@ struct SingleThread {
 };
 
 struct MultiThread {
-	using thread_policy_tag = void;
+	using module = tag_type<tag::thread_policy>;
 
 	std::mutex mutex;
 	inline void readLock() {

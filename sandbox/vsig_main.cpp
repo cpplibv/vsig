@@ -103,46 +103,94 @@ using namespace libv;
 //	func(std::forward<Args>(args)...);
 //}
 
-struct accumulator_traits {
+//struct accumulator_traits {
+//	template <typename T>
+//	struct _helper {
+//		template <typename F, typename... Args>
+//		static inline bool add(F&& func, Args&&... args) {
+//			std::cout << "non void" << std::endl;
+//			func(std::forward<Args>(args)...);
+//			return true;
+//		}
+//	};
+//
+//};
+//template <>
+//struct accumulator_traits::_helper<void> {
+//	template <typename F, typename... Args>
+//	static inline bool add(F&& func, Args&&... args) {
+//		std::cout << "void" << std::endl;
+//		func(std::forward<Args>(args)...);
+//		return true;
+//	}
+//};
+//
+//template <typename R, typename... FArgs, typename... Args>
+//inline bool add(std::function<R(FArgs...)>& func, Args&&... args) {
+//	return accumulator_traits::_helper<R>::add(func, std::forward<Args>(args)...);
+//}
+//
+//int main(int, char**) {
+//	std::function<int()> f0 = [] { return 42; };
+//	std::function<void()> f1 = [] { };
+//	std::function<int(int)> f2 = [] (int) { return 42; };
+//	std::function<void(int)> f3 = [] (int) { };
+//
+//	add(f0);
+//	add(f1);
+//	add(f2, 2);
+//	add(f3, 3);
+//
+//	//	typename std::result_of<decltype(f)>::type fr = f();
+//	//	std::cout << fr << std::endl;
+//	std::cout << "-- eof --" << std::endl;
+//
+//	return 0;
+//}
+
+template <typename T>
+struct X {
+template <typename K>
+struct Y {
+};
+};
+
+template <template <typename...> class M>
+struct O {
+//	using type = typename M<void>::Y<void>;
 	template <typename T>
-	struct _helper {
-		template <typename F, typename... Args>
-		static inline bool add(F&& func, Args&&... args) {
-			std::cout << "non void" << std::endl;
-			func(std::forward<Args>(args)...);
-			return true;
-		}
-	};
-
-};
-template <>
-struct accumulator_traits::_helper<void> {
-	template <typename F, typename... Args>
-	static inline bool add(F&& func, Args&&... args) {
-		std::cout << "void" << std::endl;
-		func(std::forward<Args>(args)...);
-		return true;
-	}
+	using type_help = typename M<void>::Y;
+	using type = type_help<void>;
 };
 
-template <typename R, typename... FArgs, typename... Args>
-inline bool add(std::function<R(FArgs...)>& func, Args&&... args) {
-	return accumulator_traits::_helper<R>::add(func, std::forward<Args>(args)...);
-}
+struct A1 {
+	using module = tag_type<tag::accumulator>;
+	void foo(){ std::cout << "A1" << std::endl; }
+};
+struct A2 {
+	using module = tag_type<tag::accumulator>;
+	void foo(){ std::cout << "A2" << std::endl; }
+};
+struct B1 {
+	using module = tag_type<tag::thread_policy>;
+	void foo(){ std::cout << "B1" << std::endl; }
+};
+struct C1 {
+	using module = tag_type<tag::history_size>;
+	void foo(){ std::cout << "C1" << std::endl; }
+};
 
 int main(int, char**) {
-	std::function<int()> f0 = [] { return 42; };
-	std::function<void()> f1 = [] { };
-	std::function<int(int)> f2 = [] (int) { return 42; };
-	std::function<void(int)> f3 = [] (int) { };
+//	std::cout << module_filter_helper<tag::accumulator>::type<A1>::value << std::endl;
+//	std::cout << module_filter_helper<tag::accumulator>::type<A2>::value << std::endl;
+//	std::cout << module_filter_helper<tag::accumulator>::type<B1>::value << std::endl;
+//	std::cout << module_filter_helper<tag::accumulator>::type<C1>::value << std::endl;
 
-	add(f0);
-	add(f1);
-	add(f2, 2);
-	add(f3, 3);
+	//	std::cout << find_first<module_filter_helper<tag::accumulator>, A1>::found::value << std::endl;
+	select<tag::history_size, A1, A2, B1, C1> x;
+	//	select<tag::accumulator, A1, A2, B1> x;
+	x.foo();
 
-	//	typename std::result_of<decltype(f)>::type fr = f();
-	//	std::cout << fr << std::endl;
 	std::cout << "-- eof --" << std::endl;
 
 	return 0;

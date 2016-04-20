@@ -1,7 +1,5 @@
 // Stack -------------------------------------------------------------------------------------------
 
-API / CompileTime virtual
--- commit
 collapse operator() and output(&O, D::f) onto base. CRTP required
 -- commit
 Implement more shit (SignalTypes)
@@ -18,6 +16,8 @@ sort moduls from aliases
 use soft aliases instead of hard typing (remove inheritance from aliasing)
 eliminate multiple realization of the same signal if default parameter is set or not by moduls...
 this will may bring back the traits in some form... ?
+-- commit
+API / CompileTime virtual
 -- commit
 
 // -------------------------------------------------------------------------------------------------

@@ -27,85 +27,98 @@ using disable_if_t = typename std::enable_if<!T::value>::type;
 template <typename T>
 using remove_reference_t = typename std::remove_reference<T>::type;
 
-template <typename T, typename K>
-using is_same_t = typename std::is_same<T, K>::type;
-
 template <typename T>
 using is_void_t = typename std::is_void<T>::type;
 
 // -------------------------------------------------------------------------------------------------
 
-template <typename... Type>
-struct deafult {
+template <typename... Types>
+struct list {
 };
 
-template <typename... Types>
-struct pack {
+template <typename APack, typename BPack>
+struct concat_list;
+
+template <typename... AList, typename... BList>
+struct concat_list<list<AList...>, list<BList...>> {
+	using type = list < AList..., BList...>;
 };
 
 // =================================================================================================
 
-template <template<typename...> class, typename...>
+template <template <typename...> class, typename...>
 struct find_first;
 
-template <template<typename...> class Predicate>
+template <template <typename...> class Predicate>
 struct find_first<Predicate> {
 	using type = void;
 	using found = std::false_type;
 };
 
-template <template<typename...> class Predicate, typename Head, typename... Tail>
+template <template <typename...> class Predicate, typename Head, typename... Tail>
 struct find_first<Predicate, Head, Tail...> {
 	using type = typename
 			std::conditional<
-			Predicate<Head>::value,
-			Head,
-			typename find_first<Predicate, Tail...>::type
+				Predicate<Head>::value,
+				Head,
+				typename find_first<Predicate, Tail...>::type
 			>::type;
 	using found = typename
 			std::conditional<
-			Predicate<Head>::value,
-			std::true_type,
-			typename find_first<Predicate, Tail...>::found
+				Predicate<Head>::value,
+				std::true_type,
+				typename find_first<Predicate, Tail...>::found
 			>::type;
 };
 
+// -------------------------------------------------------------------------------------------------
+
+template <typename Module, typename Tag> struct is_T1_same : ::std::false_type {};
+template <template <typename...> class Module, typename ModuleTag, typename Tag> struct is_T1_same<Module<ModuleTag>, Tag> :
+	std::is_same<ModuleTag, Tag>{ };
+
+template <typename T, typename Tag, typename = void> struct is_module : ::std::false_type {};
+template <typename T, typename Tag> struct is_module<T, Tag, ::libv::void_t<typename T::module>> :
+	is_T1_same<typename T::module, Tag>{ };
+
+template <typename Tag, typename... Moduls>
+struct select_helper {
+	// NOTE: Moved into here due to aliasing issues, but this is redundant with global is_module
+	template <typename T, typename = void> struct is_module : ::std::false_type {};
+	template <typename T> struct is_module<T, ::libv::void_t<typename T::module>> :
+		is_T1_same<typename T::module, Tag>{ };
+
+	using type = typename ::libv::find_first<
+				is_module,
+				Moduls...
+			>::type;
+};
+
+template <typename Tag, typename... Moduls>
+using select = typename select_helper<Tag, Moduls...>::type;
+
 // =================================================================================================
 
-#define LIBV_IMPLEMENT_HAS_TAG(Name, Tag) \
-template <typename T, typename = void> struct Name : std::false_type {}; \
-template <typename T> struct Name<T, ::libv::void_t<typename T::Tag>> : std::true_type { };
+namespace tag {
+
+struct accumulator { };
+struct thread_policy { };
+struct history_size { };
+
+} //namespace tag
+
+template <typename... Tags>
+struct tag_type {
+};
 
 // -------------------------------------------------------------------------------------------------
 
-#define LIBV_IMPLEMENT_SELECT_MODUL(Name, Tag) \
-template <typename... Moduls> using Name = typename ::libv::find_first<Tag, Moduls...>::type;
-
-// -------------------------------------------------------------------------------------------------
-
-#define LIBV_IMPLEMENT_SELECT_MODUL_OR_DEAFULT(Name, Tag) \
-template <typename Default, typename... Moduls> \
-using Name = typename std::conditional< \
-	::libv::find_first<Tag, Moduls...>::found::value, \
-	typename ::libv::find_first<Tag, Moduls...>::type, \
-	Default \
->::type;
-
-// -------------------------------------------------------------------------------------------------
-
-LIBV_IMPLEMENT_HAS_TAG(is_signal, signal_tag)
-
-LIBV_IMPLEMENT_HAS_TAG(is_accumulator, accumulator_tag)
-LIBV_IMPLEMENT_SELECT_MODUL(select_accumulator, is_accumulator)
-LIBV_IMPLEMENT_SELECT_MODUL_OR_DEAFULT(select_accumulator_or, is_accumulator)
-
-LIBV_IMPLEMENT_HAS_TAG(is_thread_policy, thread_policy_tag)
-LIBV_IMPLEMENT_SELECT_MODUL(select_thread_policy, is_thread_policy)
-LIBV_IMPLEMENT_SELECT_MODUL_OR_DEAFULT(select_thread_policy_or, is_thread_policy)
-
-LIBV_IMPLEMENT_HAS_TAG(is_history_size, history_size_tag)
-LIBV_IMPLEMENT_SELECT_MODUL(select_history_size, is_history_size)
-LIBV_IMPLEMENT_SELECT_MODUL_OR_DEAFULT(select_history_size_or, is_history_size)
+template <typename... Moduls>
+using select_accumulator = select<tag::accumulator, Moduls...>;
+template <typename... Moduls>
+using select_thread_policy = select<tag::thread_policy, Moduls...>;
+template <typename... Moduls>
+using select_history_size = select<tag::history_size, Moduls...>;
 
 // -------------------------------------------------------------------------------------------------
 

@@ -47,11 +47,7 @@ struct _accumulator_traits_add_helper<void> {
 
 template <typename Accumulator>
 struct accumulator_traits {
-private:
-	template <typename T>
-	struct helper;
-public:
-	static_assert(is_accumulator<Accumulator>::value,
+	static_assert(is_module<Accumulator, tag::accumulator>::value,
 			"accumulator_traits can only be used with an accumulator.\n"
 			"for more information see accumulator concept");
 	using result_type = decltype(std::declval<Accumulator>().result());
@@ -70,7 +66,7 @@ public:
 // -------------------------------------------------------------------------------------------------
 
 struct AccumulatorBase {
-	using accumulator_tag = void;
+	using module = tag_type<tag::accumulator>;
 	inline void result() { };
 	inline bool add() {
 		return false;

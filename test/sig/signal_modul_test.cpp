@@ -9,7 +9,7 @@ using namespace libv;
 // -------------------------------------------------------------------------------------------------
 
 template <template <typename...> class SignalType>
-void static_compile_time_modul_test() {
+void static_compile_time_module_test() {
 	SignalType<int(int), AccumulatorOr<int>> sig0;
 	SignalType<int(int), SingleThread> sig1;
 	SignalType<int(int), AccumulatorSum<int>, SingleThread> sig2;
@@ -20,10 +20,10 @@ void static_compile_time_modul_test() {
 }
 
 TEST_CASE("Static compile time modul test") {
-	static_compile_time_modul_test<Signal>();
-	static_compile_time_modul_test<CapacitivSignal>();
-	static_compile_time_modul_test<SwitchSignal>();
-	static_compile_time_modul_test<HistorySignal>();
+	static_compile_time_module_test<Signal>();
+	static_compile_time_module_test<CapacitivSignal>();
+	static_compile_time_module_test<SwitchSignal>();
+	static_compile_time_module_test<HistorySignal>();
 }
 
 // -------------------------------------------------------------------------------------------------

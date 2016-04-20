@@ -92,13 +92,12 @@ template <typename...>
 class SignalBaseImpl;
 
 template <typename RType, typename... Args, typename... Moduls>
-class SignalBaseImpl<RType(Args...), pack<Moduls...>> : public TrackableBase {
+class SignalBaseImpl<RType(Args...), list<Moduls...>> : public TrackableBase {
 public:
-	using signal_tag = void;
-	using this_type = SignalBaseImpl<RType(Args...), pack<Moduls...>>;
+	using this_type = SignalBaseImpl<RType(Args...), list<Moduls...>>;
 
-	using accumulator = select_accumulator_or<AccumulatorSum<RType>, Moduls...>;
-	using thread_policy = select_thread_policy_or<SingleThread, Moduls...>;
+	using accumulator = select_accumulator<Moduls..., AccumulatorSum<RType>>;
+	using thread_policy = select_thread_policy<Moduls..., SingleThread>;
 
 	using return_type = RType;
 	using result_type = typename accumulator_traits<accumulator>::result_type;
@@ -217,10 +216,10 @@ template <typename...>
 class SignalImpl;
 
 template <typename RType, typename... Args, typename... Moduls>
-class SignalImpl<RType(Args...), pack<Moduls...>> : public SignalBaseImpl<RType(Args...), pack<Moduls...>> {
+class SignalImpl<RType(Args...), list<Moduls...>> : public SignalBaseImpl<RType(Args...), list<Moduls...>> {
 public:
-	using this_type = SignalImpl<RType(Args...), pack<Moduls...>>;
-	using base_type = SignalBaseImpl<RType(Args...), pack<Moduls...>>;
+	using this_type = SignalImpl<RType(Args...), list<Moduls...>>;
+	using base_type = SignalBaseImpl<RType(Args...), list<Moduls...>>;
 
 public:
 	SignalImpl() = default;
@@ -241,9 +240,9 @@ template <typename...>
 class SwitchSignalImpl;
 
 template <typename RType, typename... Args, typename... Moduls>
-class SwitchSignalImpl<RType(Args...), pack<Moduls...>> : public SignalBaseImpl<RType(Args...), pack<Moduls...>> {
+class SwitchSignalImpl<RType(Args...), list<Moduls...>> : public SignalBaseImpl<RType(Args...), list<Moduls...>> {
 public:
-	using this_type = SwitchSignalImpl<RType(Args...), pack<Moduls...>>;
+	using this_type = SwitchSignalImpl<RType(Args...), list<Moduls...>>;
 private:
 	bool enabled = true;
 public:
@@ -272,9 +271,9 @@ template <typename...>
 class CapacitivSignalImpl;
 
 template <typename RType, typename... Args, typename... Moduls>
-class CapacitivSignalImpl<RType(Args...), pack<Moduls...>> : public SignalBaseImpl<RType(Args...), pack<Moduls...>> {
+class CapacitivSignalImpl<RType(Args...), list<Moduls...>> : public SignalBaseImpl<RType(Args...), list<Moduls...>> {
 public:
-	using this_type = CapacitivSignalImpl<RType(Args...), pack<Moduls...>>;
+	using this_type = CapacitivSignalImpl<RType(Args...), list<Moduls...>>;
 private:
 	std::vector<std::tuple<typename std::remove_reference<Args>::type...>> argQue;
 private:
@@ -303,7 +302,7 @@ public:
 
 template <size_t N>
 struct history_size {
-	using history_size_tag = void;
+	using module = tag_type<tag::history_size>;
 	static constexpr size_t value = N;
 };
 
@@ -311,11 +310,11 @@ template <typename...>
 class HistorySignalImpl;
 
 template <typename RType, typename... Args, typename... Moduls>
-class HistorySignalImpl<RType(Args...), pack<Moduls...>> : public SignalBaseImpl<RType(Args...), pack<Moduls...>> {
+class HistorySignalImpl<RType(Args...), list<Moduls...>> : public SignalBaseImpl<RType(Args...), list<Moduls...>> {
 public:
-	using base = SignalBaseImpl<RType(Args...), pack<Moduls...>>;
-	using this_type = HistorySignalImpl<RType(Args...), pack<Moduls...>>;
-	static constexpr size_t historySizeMax = select_history_size_or<history_size<0>, Moduls...>::value;
+	using base = SignalBaseImpl<RType(Args...), list<Moduls...>>;
+	using this_type = HistorySignalImpl<RType(Args...), list<Moduls...>>;
+	static constexpr size_t historySizeMax = select_history_size<Moduls..., history_size<0>>::value;
 
 private:
 	std::vector<std::tuple<typename std::remove_reference<Args>::type...>> history;
@@ -374,7 +373,7 @@ struct Signal : Signal<void(Args...)> {
 
 template <typename R, typename... Args, typename... Moduls>
 struct Signal<R(Args...), Moduls...> :
-	SignalImpl<R(Args...), pack<Moduls...>> {
+	SignalImpl<R(Args...), list<Moduls...>> {
 };
 
 // CapacitivSignal ---------------------------------------------------------------------------------
@@ -385,7 +384,7 @@ struct CapacitivSignal : CapacitivSignal<void(Args...)> {
 
 template <typename R, typename... Args, typename... Moduls>
 struct CapacitivSignal<R(Args...), Moduls...> :
-	CapacitivSignalImpl<R(Args...), pack<Moduls...>> {
+	CapacitivSignalImpl<R(Args...), list<Moduls...>> {
 	// TODO P4: R should always be void. Assert it.
 };
 
@@ -397,7 +396,7 @@ struct SwitchSignal : SwitchSignal<void(Args...)> {
 
 template <typename R, typename... Args, typename... Moduls>
 struct SwitchSignal<R(Args...), Moduls...> :
-	SwitchSignalImpl<R(Args...), pack<Moduls...>> {
+	SwitchSignalImpl<R(Args...), list<Moduls...>> {
 };
 
 // HistorySignal -----------------------------------------------------------------------------------
@@ -408,7 +407,7 @@ struct HistorySignal : HistorySignal<void(Args...)> {
 
 template <typename R, typename... Args, typename... Moduls>
 struct HistorySignal<R(Args...), Moduls...> :
-	HistorySignalImpl<R(Args...), pack<Moduls...>> {
+	HistorySignalImpl<R(Args...), list<Moduls...>> {
 	// TODO P4: R should always be void. Assert it.
 };
 
