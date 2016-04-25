@@ -31,8 +31,6 @@
 // TODO P3: Add precise assertions for correct module number: 0-1 acc, 0-1 thread, 0-1 callsyntax
 // TODO P4: Current accumulator rename to "combined result"? and add a bigger encapsulation
 //			which can provide (through inheritance?) runtime signal non-fire-local store and logic
-// TODO P5: Implement position independent call syntax
-// TODO P5: Fully generalize modules (including remove macros?, or improving them)
 // TODO P5: History signal output auto-flush thread safety, how it is? Dependent on fire thread safety..?
 
 // TODO P5: AdaptivSignal [in/out]put (same, generic lambda...)
@@ -80,24 +78,183 @@
 #include <vector>
 
 #include "accumulator.hpp"
-#include "trackable.hpp"
+#include "tag.hpp"
 #include "thread_policy.hpp"
+#include "trackable.hpp"
 #include "type_traits.hpp"
 
 namespace libv {
+
+// =================================================================================================
+
+template <template <typename...> class, typename Signature>
+struct module_filter;
+
+// -------------------------------------------------------------------------------------------------
+
+template <template <typename...> class Signal, typename ModulesList, typename = void>
+struct apply_modul_pack {
+	static_assert(always_false<ModulesList>::value, ""
+			"\n\tInvalid combination of signal parameters / modules."
+			"\n\tCheck template parameters of the current apply_modul_pack type:"
+			"\n\t\tSignal - Signal type which will get your modules after filter"
+			"\n\t\tlist<Modules...> - The list of the template parameters that will be used"
+			"\n\t\tvoid - <<implementation detail>>"
+			"\n\tNote - The parameter list is already filtered and processed"
+			"\n\tNote - Only the first module per type will be applied"
+			"\n\tNote - Default values applied if there was not provided one");
+};
+
+template <template <typename...> class Signal, typename... Modules>
+struct apply_modul_pack<Signal, list<Modules...>, void_t<Signal<Modules...>>> {
+	using type = Signal<Modules...>;
+};
+
+// -------------------------------------------------------------------------------------------------
+
+template <typename MF, typename = void>
+struct get_module_filter_default_modules {
+	using type = list<>;
+};
+
+template <typename MF>
+struct get_module_filter_default_modules<MF, void_t<typename MF::default_modules>> {
+	using type = typename MF::default_modules;
+};
+
+template <typename MF, typename = void>
+struct get_module_filter_parameter_tags {
+	using type = list<>;
+};
+
+template <typename MF>
+struct get_module_filter_parameter_tags<MF, void_t<typename MF::parameter_tags>> {
+	using type = typename MF::parameter_tags;
+};
+
+// -------------------------------------------------------------------------------------------------
+
+template <typename MF, typename = void>
+struct summarieze_module_filter_default_modules {
+	using type = typename MF::default_modules;
+};
+
+template <typename MF>
+struct summarieze_module_filter_default_modules<MF, void_t<typename MF::base_type>> {
+	using type = typename concat_list<
+				typename get_module_filter_default_modules<MF>::type,
+				typename summarieze_module_filter_default_modules<typename MF::base_type>::type
+			>::type;
+};
+
+template <typename MF, typename = void>
+struct summarieze_module_filter_parameter_tags {
+	using type = typename MF::parameter_tags;
+};
+
+template <typename MF>
+struct summarieze_module_filter_parameter_tags<MF, void_t<typename MF::base_type>> {
+	using type = typename concat_list<
+				typename get_module_filter_parameter_tags<MF>::type,
+				typename summarieze_module_filter_parameter_tags<typename MF::base_type>::type
+			>::type;
+};
+
+// -------------------------------------------------------------------------------------------------
+
+template <typename Tags, typename Modules>
+struct foreach_select;
+
+template <typename... Modules>
+struct foreach_select<list<>, list<Modules...>> {
+	using type = list<>;
+};
+
+template <typename TagsHead, typename... TagsTail, typename... Modules>
+struct foreach_select<list<TagsHead, TagsTail...>, list<Modules...>> {
+	using type = typename append<
+				select<TagsHead, Modules...>,
+				typename foreach_select<list<TagsTail...>, list<Modules...>>::type
+			>::type;
+};
+
+// -------------------------------------------------------------------------------------------------
+
+template <template <typename...> class Signal, typename... Args>
+struct process_module_filter;
+
+template <template <typename...> class Signal, typename RType, typename... Args, typename... Modules>
+struct process_module_filter<Signal, RType(Args...), list<Modules...>> {
+	using raw_filter = module_filter<Signal, RType(Args...)>;
+
+	using summariezed_defaults = typename summarieze_module_filter_default_modules<raw_filter>::type;
+	using modules_with_defaults = typename concat_list<list<Modules...>, summariezed_defaults>::type;
+	using summariezed_tags = typename summarieze_module_filter_parameter_tags<raw_filter>::type;
+	using modules_to_be_applied = typename foreach_select<summariezed_tags, modules_with_defaults>::type;
+
+	using type = typename append<RType(Args...), modules_to_be_applied>::type;
+};
+
+// -------------------------------------------------------------------------------------------------
+
+template <template <typename...> class Signal, typename... Modules>
+struct signal_with_filtered_moduls {
+	using signature = typename std::conditional<
+				search_call_signature<Modules...>::value,
+				typename select_call_signature<Modules..., void(void)>::type,
+				void(Modules...)
+			>::type;
+	using moduls = typename std::conditional<
+				search_call_signature<Modules...>::value,
+				list<Modules...>,
+				list<>
+			>::type;
+	using final_modul_list = typename process_module_filter<Signal, signature, moduls>::type;
+	using type = typename apply_modul_pack<Signal, final_modul_list>::type;
+};
+
+// -------------------------------------------------------------------------------------------------
+
+template <template <typename...> class Signal, typename... Modules>
+using signal_alias = typename signal_with_filtered_moduls<Signal, Modules...>::type;
+
+// -------------------------------------------------------------------------------------------------
+
+//
+//
+// =================================================================================================
+//     Signal Implementations
+// =================================================================================================
+//
+//
 
 // === SignalBase ==================================================================================
 
 template <typename...>
 class SignalBaseImpl;
 
-template <typename RType, typename... Args, typename... Moduls>
-class SignalBaseImpl<RType(Args...), list<Moduls...>> : public TrackableBase {
-public:
-	using this_type = SignalBaseImpl<RType(Args...), list<Moduls...>>;
+template <typename R, typename... Args>
+struct module_filter<SignalBaseImpl, R(Args...)> {
+	using default_modules = list<
+			AccumulatorSum<R>,
+			SingleThread>;
+	using parameter_tags = list<
+			tag::accumulator,
+			tag::thread_policy>;
+};
 
-	using accumulator = select_accumulator<Moduls..., AccumulatorSum<RType>>;
-	using thread_policy = select_thread_policy<Moduls..., SingleThread>;
+// -------------------------------------------------------------------------------------------------
+
+template <typename...>
+class SignalBaseImpl;
+
+template <typename RType, typename... Args, typename Accumulator, typename ThreadPolicy>
+class SignalBaseImpl<RType(Args...), Accumulator, ThreadPolicy> : public TrackableBase {
+public:
+	using this_type = SignalBaseImpl<RType(Args...), Accumulator, ThreadPolicy>;
+
+	using accumulator = Accumulator;
+	using thread_policy = ThreadPolicy;
 
 	using return_type = RType;
 	using result_type = typename accumulator_traits<accumulator>::result_type;
@@ -215,11 +372,20 @@ public:
 template <typename...>
 class SignalImpl;
 
-template <typename RType, typename... Args, typename... Moduls>
-class SignalImpl<RType(Args...), list<Moduls...>> : public SignalBaseImpl<RType(Args...), list<Moduls...>> {
+// -------------------------------------------------------------------------------------------------
+
+template <typename R, typename... Args>
+struct module_filter<SignalImpl, R(Args...)> {
+	using base_type = module_filter<SignalBaseImpl, R(Args...)>;
+};
+
+// -------------------------------------------------------------------------------------------------
+
+template <typename RType, typename... Args, typename... Modules>
+class SignalImpl<RType(Args...), Modules...> : public SignalBaseImpl<RType(Args...), Modules...> {
 public:
-	using this_type = SignalImpl<RType(Args...), list<Moduls...>>;
-	using base_type = SignalBaseImpl<RType(Args...), list<Moduls...>>;
+	using base_type = SignalBaseImpl<RType(Args...), Modules...>;
+	using this_type = SignalImpl<RType(Args...), Modules...>;
 
 public:
 	SignalImpl() = default;
@@ -239,10 +405,20 @@ public:
 template <typename...>
 class SwitchSignalImpl;
 
-template <typename RType, typename... Args, typename... Moduls>
-class SwitchSignalImpl<RType(Args...), list<Moduls...>> : public SignalBaseImpl<RType(Args...), list<Moduls...>> {
+// -------------------------------------------------------------------------------------------------
+
+template <typename R, typename... Args>
+struct module_filter<SwitchSignalImpl, R(Args...)> {
+	using base_type = module_filter<SignalBaseImpl, R(Args...)>;
+};
+
+// -------------------------------------------------------------------------------------------------
+
+template <typename RType, typename... Args, typename... Modules>
+class SwitchSignalImpl<RType(Args...), Modules...> : public SignalBaseImpl<RType(Args...), Modules...> {
 public:
-	using this_type = SwitchSignalImpl<RType(Args...), list<Moduls...>>;
+	using base_type = SignalBaseImpl<RType(Args...), Modules...>;
+	using this_type = SwitchSignalImpl<RType(Args...), Modules...>;
 private:
 	bool enabled = true;
 public:
@@ -270,10 +446,20 @@ public:
 template <typename...>
 class CapacitivSignalImpl;
 
-template <typename RType, typename... Args, typename... Moduls>
-class CapacitivSignalImpl<RType(Args...), list<Moduls...>> : public SignalBaseImpl<RType(Args...), list<Moduls...>> {
+// -------------------------------------------------------------------------------------------------
+
+template <typename R, typename... Args>
+struct module_filter<CapacitivSignalImpl, R(Args...)> {
+	using base_type = module_filter<SignalBaseImpl, R(Args...)>;
+};
+
+// -------------------------------------------------------------------------------------------------
+
+template <typename RType, typename... Args, typename... Modules>
+class CapacitivSignalImpl<RType(Args...), Modules...> : public SignalBaseImpl<RType(Args...), Modules...> {
 public:
-	using this_type = CapacitivSignalImpl<RType(Args...), list<Moduls...>>;
+	using base_type = SignalBaseImpl<RType(Args...), Modules...>;
+	using this_type = CapacitivSignalImpl<RType(Args...), Modules...>;
 private:
 	std::vector<std::tuple<typename std::remove_reference<Args>::type...>> argQue;
 private:
@@ -300,22 +486,35 @@ public:
 
 // === HistorySignal ===============================================================================
 
+template <typename...>
+class HistorySignalImpl;
+
 template <size_t N>
 struct history_size {
 	using module = tag_type<tag::history_size>;
 	static constexpr size_t value = N;
 };
 
-template <typename...>
-class HistorySignalImpl;
+// -------------------------------------------------------------------------------------------------
 
-template <typename RType, typename... Args, typename... Moduls>
-class HistorySignalImpl<RType(Args...), list<Moduls...>> : public SignalBaseImpl<RType(Args...), list<Moduls...>> {
+template <typename R, typename... Args>
+struct module_filter<HistorySignalImpl, R(Args...)> {
+	using base_type = module_filter<SignalBaseImpl, R(Args...)>;
+
+	using default_modules = list<history_size<0>>;
+	using parameter_tags = list<tag::history_size>;
+};
+
+// -------------------------------------------------------------------------------------------------
+
+template <typename RType, typename... Args, typename HistorySize, typename... Modules>
+class HistorySignalImpl<RType(Args...), HistorySize, Modules...> : public SignalBaseImpl<RType(Args...), Modules...> {
 public:
-	using base = SignalBaseImpl<RType(Args...), list<Moduls...>>;
-	using this_type = HistorySignalImpl<RType(Args...), list<Moduls...>>;
-	static constexpr size_t historySizeMax = select_history_size<Moduls..., history_size<0>>::value;
+	using base_type = SignalBaseImpl<RType(Args...), Modules...>;
+	using this_type = HistorySignalImpl<RType(Args...), HistorySize, Modules...>;
 
+	using history_size = HistorySize;
+	static constexpr size_t historySizeMax = history_size::value;
 private:
 	std::vector<std::tuple<typename std::remove_reference<Args>::type...>> history;
 private:
@@ -329,7 +528,7 @@ public:
 	template <typename F>
 	inline void output(F&& func) {
 		flushHelper(func, std::index_sequence_for<Args...>{});
-		base::output(std::forward<F>(func));
+		base_type::output(std::forward<F>(func));
 	}
 	template <typename Derivered, typename Object = Derivered>
 	inline void output(Derivered& obj, RType(Object::*func)(Args...) = &Object::operator()) {
@@ -340,7 +539,7 @@ public:
 		flushHelper([=](Args... args){
 			(obj->*func)(args...);
 		}, std::index_sequence_for<Args...>{});
-		base::output(obj, func);
+		base_type::output(obj, func);
 	}
 	inline size_t historySize() const {
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
@@ -365,51 +564,17 @@ public:
 
 // === Aliases =====================================================================================
 
-// Signal ------------------------------------------------------------------------------------------
+template <typename... Args>
+using Signal = signal_alias<SignalImpl, Args...>;
 
 template <typename... Args>
-struct Signal : Signal<void(Args...)> {
-};
-
-template <typename R, typename... Args, typename... Moduls>
-struct Signal<R(Args...), Moduls...> :
-	SignalImpl<R(Args...), list<Moduls...>> {
-};
-
-// CapacitivSignal ---------------------------------------------------------------------------------
+using CapacitivSignal = signal_alias<CapacitivSignalImpl, Args...>;
 
 template <typename... Args>
-struct CapacitivSignal : CapacitivSignal<void(Args...)> {
-};
-
-template <typename R, typename... Args, typename... Moduls>
-struct CapacitivSignal<R(Args...), Moduls...> :
-	CapacitivSignalImpl<R(Args...), list<Moduls...>> {
-	// TODO P4: R should always be void. Assert it.
-};
-
-// SwitchSignal ------------------------------------------------------------------------------------
+using SwitchSignal = signal_alias<SwitchSignalImpl, Args...>;
 
 template <typename... Args>
-struct SwitchSignal : SwitchSignal<void(Args...)> {
-};
-
-template <typename R, typename... Args, typename... Moduls>
-struct SwitchSignal<R(Args...), Moduls...> :
-	SwitchSignalImpl<R(Args...), list<Moduls...>> {
-};
-
-// HistorySignal -----------------------------------------------------------------------------------
-
-template <typename... Args>
-struct HistorySignal : HistorySignal<void(Args...)> {
-};
-
-template <typename R, typename... Args, typename... Moduls>
-struct HistorySignal<R(Args...), Moduls...> :
-	HistorySignalImpl<R(Args...), list<Moduls...>> {
-	// TODO P4: R should always be void. Assert it.
-};
+using HistorySignal = signal_alias<HistorySignalImpl, Args...>;
 
 // -------------------------------------------------------------------------------------------------
 

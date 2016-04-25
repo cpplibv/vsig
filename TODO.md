@@ -12,11 +12,6 @@ Use historyMax
 -- commit
 maybe hide signal "internal" types - just maybe tho
 -- commit
-sort moduls from aliases
-use soft aliases instead of hard typing (remove inheritance from aliasing)
-eliminate multiple realization of the same signal if default parameter is set or not by moduls...
-this will may bring back the traits in some form... ?
--- commit
 API / CompileTime virtual
 -- commit
 
@@ -57,3 +52,7 @@ template<class T> constexpr int* p = &x<T>;
 
 benchmarks:
 https://github.com/NoAvailableAlias/signal-slot-benchmarks
+
+
+add_compile_options(-flto=13)
+add_compile_options(-fconcepts)

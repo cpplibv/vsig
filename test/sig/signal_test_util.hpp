@@ -9,40 +9,27 @@
 
 #define SpyResultTypeFor(SIGNAL) typename SpyResultFor<decltype(SIGNAL)>::type
 
+// -------------------------------------------------------------------------------------------------
+
+template <typename>
+struct call_signature_to_arg_vector;
+
+template <typename RType, typename... Args>
+struct call_signature_to_arg_vector<RType(Args...)> {
+	using type = std::vector<std::tuple<typename std::remove_reference<Args>::type...>>;
+};
+
+// -------------------------------------------------------------------------------------------------
+
 template<typename...> struct SpyResultFor;
 
-template<typename... Args>
-struct SpyResultFor<libv::Signal<Args...>> {
-	using type = std::vector<std::tuple<typename std::remove_reference<Args>::type...>>;
+template<template <typename...> class S, typename... Moduls>
+struct SpyResultFor<S<Moduls...>> {
+	using signature = typename libv::select_call_signature<Moduls...>::type;
+	using type = typename call_signature_to_arg_vector<signature>::type;
 };
-template<typename R, typename... Args>
-struct SpyResultFor<libv::Signal<R(Args...)>> {
-	using type = std::vector<std::tuple<typename std::remove_reference<Args>::type...>>;
-};
-template<typename... Args>
-struct SpyResultFor<libv::CapacitivSignal<Args...>> {
-	using type = std::vector<std::tuple<typename std::remove_reference<Args>::type...>>;
-};
-template<typename R, typename... Args>
-struct SpyResultFor<libv::CapacitivSignal<R(Args...)>> {
-	using type = std::vector<std::tuple<typename std::remove_reference<Args>::type...>>;
-};
-template<typename... Args>
-struct SpyResultFor<libv::SwitchSignal<Args...>> {
-	using type = std::vector<std::tuple<typename std::remove_reference<Args>::type...>>;
-};
-template<typename R, typename... Args>
-struct SpyResultFor<libv::SwitchSignal<R(Args...)>> {
-	using type = std::vector<std::tuple<typename std::remove_reference<Args>::type...>>;
-};
-template<typename... Args>
-struct SpyResultFor<libv::HistorySignal<Args...>> {
-	using type = std::vector<std::tuple<typename std::remove_reference<Args>::type...>>;
-};
-template<typename R, typename... Args>
-struct SpyResultFor<libv::HistorySignal<R(Args...)>> {
-	using type = std::vector<std::tuple<typename std::remove_reference<Args>::type...>>;
-};
+
+// -------------------------------------------------------------------------------------------------
 
 template<typename R, typename... Args, typename T>
 std::function<R(Args...)> spyInto(T& result) {

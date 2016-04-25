@@ -6,7 +6,7 @@
 
 namespace libv {
 
-// -------------------------------------------------------------------------------------------------
+// core --------------------------------------------------------------------------------------------
 
 template <typename...>
 struct voider { //CWG 1558
@@ -16,7 +16,15 @@ struct voider { //CWG 1558
 template <typename... Args>
 using void_t = typename voider<Args...>::type;
 
-// -------------------------------------------------------------------------------------------------
+template <typename... T>
+struct always_true : std::true_type {
+};
+
+template <typename... T>
+struct always_false : std::false_type {
+};
+
+// std shortcuts -----------------------------------------------------------------------------------
 
 template <typename T>
 using enable_if_t = typename std::enable_if<T::value>::type;
@@ -30,7 +38,7 @@ using remove_reference_t = typename std::remove_reference<T>::type;
 template <typename T>
 using is_void_t = typename std::is_void<T>::type;
 
-// -------------------------------------------------------------------------------------------------
+// list --------------------------------------------------------------------------------------------
 
 template <typename... Types>
 struct list {
@@ -41,10 +49,23 @@ struct concat_list;
 
 template <typename... AList, typename... BList>
 struct concat_list<list<AList...>, list<BList...>> {
-	using type = list < AList..., BList...>;
+	using type = list<AList..., BList...>;
 };
 
-// =================================================================================================
+template <typename Element, typename... List>
+struct append;
+
+template <typename Element, typename... List>
+struct append<Element, list<List...>> {
+	using type = list<Element, List...>;
+};
+
+template <typename Element, typename... List>
+struct append<list<List...>, Element> {
+	using type = list<List..., Element>;
+};
+
+// find_first --------------------------------------------------------------------------------------
 
 template <template <typename...> class, typename...>
 struct find_first;
@@ -71,54 +92,54 @@ struct find_first<Predicate, Head, Tail...> {
 			>::type;
 };
 
-// -------------------------------------------------------------------------------------------------
+// module ------------------------------------------------------------------------------------------
 
-template <typename Module, typename Tag> struct is_T1_same : ::std::false_type {};
-template <template <typename...> class Module, typename ModuleTag, typename Tag> struct is_T1_same<Module<ModuleTag>, Tag> :
+template <typename Module, typename Tag> struct is_t1_same : ::std::false_type {};
+template <template <typename...> class Module, typename ModuleTag, typename Tag> struct is_t1_same<Module<ModuleTag>, Tag> :
 	std::is_same<ModuleTag, Tag>{ };
 
-template <typename T, typename Tag, typename = void> struct is_module : ::std::false_type {};
-template <typename T, typename Tag> struct is_module<T, Tag, ::libv::void_t<typename T::module>> :
-	is_T1_same<typename T::module, Tag>{ };
+template <typename T, typename Tag, typename = void> struct is_module : std::false_type {};
+template <typename T, typename Tag> struct is_module<T, Tag, void_t<typename T::module>> :
+	is_t1_same<typename T::module, Tag>{ };
 
-template <typename Tag, typename... Moduls>
+template <typename Tag, typename... Modules>
 struct select_helper {
-	// NOTE: Moved into here due to aliasing issues, but this is redundant with global is_module
-	template <typename T, typename = void> struct is_module : ::std::false_type {};
-	template <typename T> struct is_module<T, ::libv::void_t<typename T::module>> :
-		is_T1_same<typename T::module, Tag>{ };
-
-	using type = typename ::libv::find_first<
-				is_module,
-				Moduls...
-			>::type;
+	template <typename T> struct is_modul_with_bound_tag : is_module<T, Tag> {
+	};
+	using type = typename ::libv::find_first<is_modul_with_bound_tag, Modules...>::type;
 };
 
-template <typename Tag, typename... Moduls>
-using select = typename select_helper<Tag, Moduls...>::type;
+template <typename Tag, typename... Modules>
+using select = typename select_helper<Tag, Modules...>::type;
 
-// =================================================================================================
+// select call signature ---------------------------------------------------------------------------
 
-namespace tag {
+template <typename...>
+struct select_call_signature;
 
-struct accumulator { };
-struct thread_policy { };
-struct history_size { };
-
-} //namespace tag
-
-template <typename... Tags>
-struct tag_type {
+template <typename RType, typename... Args, typename... Tail>
+struct select_call_signature<RType(Args...), Tail...> {
+	using type = RType(Args...);
 };
 
-// -------------------------------------------------------------------------------------------------
+template <typename Head, typename... Tail>
+struct select_call_signature<Head, Tail...> {
+	using type = typename select_call_signature<Tail...>::type;
+};
 
-template <typename... Moduls>
-using select_accumulator = select<tag::accumulator, Moduls...>;
-template <typename... Moduls>
-using select_thread_policy = select<tag::thread_policy, Moduls...>;
-template <typename... Moduls>
-using select_history_size = select<tag::history_size, Moduls...>;
+// search call signature ---------------------------------------------------------------------------
+
+template <typename...>
+struct search_call_signature;
+
+template <>
+struct search_call_signature<> : std::false_type {};
+
+template <typename RType, typename... Args, typename... Tail>
+struct search_call_signature<RType(Args...), Tail...> : std::true_type {};
+
+template <typename Head, typename... Tail>
+struct search_call_signature<Head, Tail...> : search_call_signature<Tail...> {};
 
 // -------------------------------------------------------------------------------------------------
 

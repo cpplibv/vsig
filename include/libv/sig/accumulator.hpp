@@ -2,17 +2,16 @@
 
 #pragma once
 
+#include "tag.hpp"
 #include "type_traits.hpp"
 
 namespace libv {
-
-// IDEA: Instead of accumulator_tag, i could use a common empty base class.
 
 // -------------------------------------------------------------------------------------------------
 
 // template <typename T, typename R = T>
 // Concept Accumulator {
-//	using accumulator_tag = void;
+//	using module = tag_type<tag::accumulator>;
 //	Accumulator()
 //		- Accumulator should be default constructible
 //	inline bool add();
