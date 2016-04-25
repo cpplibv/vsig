@@ -1,7 +1,5 @@
 // Stack -------------------------------------------------------------------------------------------
 
-collapse operator() and output(&O, D::f) onto base. CRTP required
--- commit
 Implement more shit (SignalTypes)
 -- commit
 Trackable and Trackable API
@@ -10,7 +8,7 @@ This basicly means remove Trackable base class and handle trackable and handle i
 -- commit
 Use historyMax
 -- commit
-maybe hide signal "internal" types - just maybe tho
+collapse operator() and output(&O, D::f) onto base. CRTP required
 -- commit
 API / CompileTime virtual
 -- commit

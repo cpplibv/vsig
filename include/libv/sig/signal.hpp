@@ -27,8 +27,12 @@
 // TODO P3: Remove reference, remove constness from results type?
 // TODO P3: In Signal Hub-Proxy a connection can be represented with only 1 ptr where the last last
 //			bit of the address can represent the direction!
-// TODO P3: Give static assert for "typos" like: Signal<int, AccumulatorSum<int>, SingleThread>
-// TODO P3: Add precise assertions for correct module number: 0-1 acc, 0-1 thread, 0-1 callsyntax
+// TODO P3: Improve module filter to warn about:
+//				- unused parameters (only 0..1 occurrence per tag or call syntax are allowed)
+//				- mixed syntax Signal<int, AccumulatorSum<int>, SingleThread>
+// TODO P3: Improve module filter to handle only modules without call syntax as modules
+//			So change decider condition from has call syntax to all module
+//
 // TODO P4: Current accumulator rename to "combined result"? and add a bigger encapsulation
 //			which can provide (through inheritance?) runtime signal non-fire-local store and logic
 // TODO P5: History signal output auto-flush thread safety, how it is? Dependent on fire thread safety..?
@@ -253,11 +257,10 @@ class SignalBaseImpl<RType(Args...), Accumulator, ThreadPolicy> : public Trackab
 public:
 	using this_type = SignalBaseImpl<RType(Args...), Accumulator, ThreadPolicy>;
 
-	using accumulator = Accumulator;
+	using accumulator = accumulator_traits<Accumulator>;
 	using thread_policy = ThreadPolicy;
 
-	using return_type = RType;
-	using result_type = typename accumulator_traits<accumulator>::result_type;
+	using result_type = typename accumulator::result_type;
 
 protected:
 	thread_policy threadPolicy;
@@ -290,12 +293,12 @@ public:
 	// ---------------------------------------------------------------------------------------------
 protected:
 	result_type fireImpl(Args... args) {
-		auto acc = accumulator_traits<accumulator>::create();
+		auto acc = accumulator::create();
 		for (auto& output : outputs) {
-			if (accumulator_traits<accumulator>::add(acc, output.second, std::forward<Args>(args)...))
-				return accumulator_traits<accumulator>::result(acc);
+			if (accumulator::add(acc, output.second, std::forward<Args>(args)...))
+				return accumulator::result(acc);
 		}
-		return accumulator_traits<accumulator>::result(acc);
+		return accumulator::result(acc);
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -430,14 +433,17 @@ public:
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
 		enabled = false;
 	}
-	inline RType fire(Args... args) {
+	inline typename base_type::result_type fire(Args... args) {
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
-		if (enabled)
+		if (enabled) {
 			return this->fireImpl(std::forward<Args>(args)...);
-		return RType();
+		} else {
+			auto acc = base_type::accumulator::create();
+			return base_type::accumulator::result(acc);
+		}
 	}
-	inline RType operator()(Args... args) {
-		fire(std::forward<Args>(args)...);
+	inline typename base_type::result_type operator()(Args... args) {
+		return fire(std::forward<Args>(args)...);
 	}
 };
 
@@ -553,7 +559,7 @@ public:
 		history.emplace_back(args...);
 		this->fireImpl(args...);
 	}
-	inline RType operator()(Args... args) {
+	inline void operator()(Args... args) {
 		fire(std::forward<Args>(args)...);
 	}
 	inline void clearHistory() {
