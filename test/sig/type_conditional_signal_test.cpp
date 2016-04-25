@@ -12,25 +12,25 @@ using libv::ConditionalSignal;
 // === SwitchSignal ===========================================================================
 
 TEST_CASE("ConditionalSignal Test") {
-//	ConditionalSignal<int> source;
-//	SpyResultTypeFor(source) result;
-//	source.output(spyInto<void, int>(result));
-//
-//	SECTION("By default firing reaches the output") {
-//		source.fire(0);
-//		CHECK(result.size() == 1u);
-//	}
-//
-//	SECTION("Output can be disabled") {
-//		source.disable();
-//		source.fire(0);
-//		CHECK(result.size() == 0u);
-//	}
-//
-//	SECTION("Output can be re-enabled") {
-//		source.disable();
-//		source.enable();
-//		source.fire(0);
-//		CHECK(result.size() == 1u);
-//	}
+	ConditionalSignal<int> source;
+	SpyResultTypeFor(source) result;
+	source.output(spyInto<void, int>(result));
+
+	SECTION("By default firing reaches the output") {
+		source.fire(0);
+		CHECK(result.size() == 1u);
+	}
+
+	SECTION("Output can be disabled") {
+		source.disable();
+		source.fire(0);
+		CHECK(result.size() == 0u);
+	}
+
+	SECTION("Output can be re-enabled") {
+		source.disable();
+		source.enable();
+		source.fire(0);
+		CHECK(result.size() == 1u);
+	}
 }

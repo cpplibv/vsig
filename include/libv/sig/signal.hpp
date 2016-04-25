@@ -404,50 +404,6 @@ public:
 	}
 };
 
-// === SwitchSignal ================================================================================
-
-template <typename...>
-class SwitchSignalImpl;
-
-// -------------------------------------------------------------------------------------------------
-
-template <typename R, typename... Args>
-struct module_filter<SwitchSignalImpl, R(Args...)> {
-	using base_type = module_filter<SignalBaseImpl, R(Args...)>;
-};
-
-// -------------------------------------------------------------------------------------------------
-
-template <typename RType, typename... Args, typename... Modules>
-class SwitchSignalImpl<RType(Args...), Modules...> : public SignalBaseImpl<RType(Args...), Modules...> {
-public:
-	using base_type = SignalBaseImpl<RType(Args...), Modules...>;
-	using this_type = SwitchSignalImpl<RType(Args...), Modules...>;
-private:
-	bool enabled = true;
-public:
-	inline void enable() {
-		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
-		enabled = true;
-	}
-	inline void disable() {
-		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
-		enabled = false;
-	}
-	inline typename base_type::result_type fire(Args... args) {
-		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
-		if (enabled) {
-			return this->fireImpl(std::forward<Args>(args)...);
-		} else {
-			auto acc = base_type::accumulator::create();
-			return base_type::accumulator::result(acc);
-		}
-	}
-	inline typename base_type::result_type operator()(Args... args) {
-		return fire(std::forward<Args>(args)...);
-	}
-};
-
 // === CapacitiveSignal ============================================================================
 
 template <typename...>
@@ -488,6 +444,50 @@ public:
 	inline void flush() {
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
 		flushHelper(std::index_sequence_for < Args...>{});
+	}
+};
+
+// === ConditionalSignal ============================================================================
+
+template <typename...>
+class ConditionalSignalImpl;
+
+// -------------------------------------------------------------------------------------------------
+
+template <typename R, typename... Args>
+struct module_filter<ConditionalSignalImpl, R(Args...)> {
+	using base_type = module_filter<SignalBaseImpl, R(Args...)>;
+};
+
+// -------------------------------------------------------------------------------------------------
+
+template <typename RType, typename... Args, typename... Modules>
+class ConditionalSignalImpl<RType(Args...), Modules...> : public SignalBaseImpl<RType(Args...), Modules...> {
+public:
+	using base_type = SignalBaseImpl<RType(Args...), Modules...>;
+	using this_type = ConditionalSignalImpl<RType(Args...), Modules...>;
+private:
+	bool enabled = true;
+public:
+	inline void enable() {
+		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
+		enabled = true;
+	}
+	inline void disable() {
+		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
+		enabled = false;
+	}
+	inline typename base_type::result_type fire(Args... args) {
+		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
+		if (enabled) {
+			return this->fireImpl(std::forward<Args>(args)...);
+		} else {
+			auto acc = base_type::accumulator::create();
+			return base_type::accumulator::result(acc);
+		}
+	}
+	inline typename base_type::result_type operator()(Args... args) {
+		return fire(std::forward<Args>(args)...);
 	}
 };
 
@@ -569,6 +569,50 @@ public:
 	}
 };
 
+// === SwitchSignal ================================================================================
+
+template <typename...>
+class SwitchSignalImpl;
+
+// -------------------------------------------------------------------------------------------------
+
+template <typename R, typename... Args>
+struct module_filter<SwitchSignalImpl, R(Args...)> {
+	using base_type = module_filter<SignalBaseImpl, R(Args...)>;
+};
+
+// -------------------------------------------------------------------------------------------------
+
+template <typename RType, typename... Args, typename... Modules>
+class SwitchSignalImpl<RType(Args...), Modules...> : public SignalBaseImpl<RType(Args...), Modules...> {
+public:
+	using base_type = SignalBaseImpl<RType(Args...), Modules...>;
+	using this_type = SwitchSignalImpl<RType(Args...), Modules...>;
+private:
+	bool enabled = true;
+public:
+	inline void enable() {
+		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
+		enabled = true;
+	}
+	inline void disable() {
+		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
+		enabled = false;
+	}
+	inline typename base_type::result_type fire(Args... args) {
+		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
+		if (enabled) {
+			return this->fireImpl(std::forward<Args>(args)...);
+		} else {
+			auto acc = base_type::accumulator::create();
+			return base_type::accumulator::result(acc);
+		}
+	}
+	inline typename base_type::result_type operator()(Args... args) {
+		return fire(std::forward<Args>(args)...);
+	}
+};
+
 // === Aliases =====================================================================================
 
 template <typename... Args>
@@ -578,13 +622,13 @@ template <typename... Args>
 using CapacitiveSignal = signal_alias<CapacitiveSignalImpl, Args...>;
 
 template <typename... Args>
-using ConditionalSignal = void;
-
-template <typename... Args>
-using SwitchSignal = signal_alias<SwitchSignalImpl, Args...>;
+using ConditionalSignal = signal_alias<ConditionalSignalImpl, Args...>;
 
 template <typename... Args>
 using HistorySignal = signal_alias<HistorySignalImpl, Args...>;
+
+template <typename... Args>
+using SwitchSignal = signal_alias<SwitchSignalImpl, Args...>;
 
 // -------------------------------------------------------------------------------------------------
 
