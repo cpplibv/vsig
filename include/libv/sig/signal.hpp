@@ -38,6 +38,8 @@
 //				- Dynamic history size
 //				- Circular buffer
 //				- Output auto-flush thread safety
+// TODO P5: Thread safety of modules: exposed function due to inheritance are the danger
+//			But, do i really considering cross module operations for solving this?
 
 // TODO P4: ConditionalSignal - Forward the call only if the predicate function allows it
 // TODO P4: RoutingSignal [set/get]Condition(SignalRouter)
@@ -76,13 +78,14 @@
 // NAME: Hub: SignalHub, SignalHost
 // NAME: Proxy: SignalProxy, SignalMarker
 
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <set>
 #include <vector>
 
-#include "accumulator.hpp"
+#include "module.hpp"
 #include "tag.hpp"
 #include "thread_policy.hpp"
 #include "trackable.hpp"
@@ -386,7 +389,8 @@ struct module_filter<SignalImpl, R(Args...)> {
 // -------------------------------------------------------------------------------------------------
 
 template <typename RType, typename... Args, typename... Modules>
-class SignalImpl<RType(Args...), Modules...> : public SignalBaseImpl<RType(Args...), Modules...> {
+class SignalImpl<RType(Args...), Modules...>
+		: public SignalBaseImpl<RType(Args...), Modules...> {
 public:
 	using base_type = SignalBaseImpl<RType(Args...), Modules...>;
 	using this_type = SignalImpl<RType(Args...), Modules...>;
@@ -419,7 +423,8 @@ struct module_filter<CapacitiveSignalImpl, R(Args...)> {
 // -------------------------------------------------------------------------------------------------
 
 template <typename RType, typename... Args, typename... Modules>
-class CapacitiveSignalImpl<RType(Args...), Modules...> : public SignalBaseImpl<RType(Args...), Modules...> {
+class CapacitiveSignalImpl<RType(Args...), Modules...>
+		: public SignalBaseImpl<RType(Args...), Modules...> {
 public:
 	using base_type = SignalBaseImpl<RType(Args...), Modules...>;
 	using this_type = CapacitiveSignalImpl<RType(Args...), Modules...>;
@@ -447,7 +452,7 @@ public:
 	}
 };
 
-// === ConditionalSignal ============================================================================
+// === ConditionalSignal ===========================================================================
 
 template <typename...>
 class ConditionalSignalImpl;
@@ -457,29 +462,25 @@ class ConditionalSignalImpl;
 template <typename R, typename... Args>
 struct module_filter<ConditionalSignalImpl, R(Args...)> {
 	using base_type = module_filter<SignalBaseImpl, R(Args...)>;
+
+	using default_modules = list<ConditionDynamic<Args...>>;
+	using parameter_tags = list<tag::condition>;
 };
 
 // -------------------------------------------------------------------------------------------------
 
-template <typename RType, typename... Args, typename... Modules>
-class ConditionalSignalImpl<RType(Args...), Modules...> : public SignalBaseImpl<RType(Args...), Modules...> {
+template <typename RType, typename... Args, typename Condition, typename... Modules>
+class ConditionalSignalImpl<RType(Args...), Condition, Modules...>
+		: public SignalBaseImpl<RType(Args...), Modules...>, public Condition {
 public:
 	using base_type = SignalBaseImpl<RType(Args...), Modules...>;
-	using this_type = ConditionalSignalImpl<RType(Args...), Modules...>;
+	using this_type = ConditionalSignalImpl<RType(Args...), Condition, Modules...>;
 private:
 	bool enabled = true;
 public:
-	inline void enable() {
-		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
-		enabled = true;
-	}
-	inline void disable() {
-		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
-		enabled = false;
-	}
 	inline typename base_type::result_type fire(Args... args) {
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
-		if (enabled) {
+		if (Condition::check(std::forward<Args>(args)...)) {
 			return this->fireImpl(std::forward<Args>(args)...);
 		} else {
 			auto acc = base_type::accumulator::create();
@@ -515,7 +516,8 @@ struct module_filter<HistorySignalImpl, R(Args...)> {
 // -------------------------------------------------------------------------------------------------
 
 template <typename RType, typename... Args, typename HistorySize, typename... Modules>
-class HistorySignalImpl<RType(Args...), HistorySize, Modules...> : public SignalBaseImpl<RType(Args...), Modules...> {
+class HistorySignalImpl<RType(Args...), HistorySize, Modules...>
+		: public SignalBaseImpl<RType(Args...), Modules...> {
 public:
 	using base_type = SignalBaseImpl<RType(Args...), Modules...>;
 	using this_type = HistorySignalImpl<RType(Args...), HistorySize, Modules...>;
@@ -578,39 +580,16 @@ class SwitchSignalImpl;
 
 template <typename R, typename... Args>
 struct module_filter<SwitchSignalImpl, R(Args...)> {
-	using base_type = module_filter<SignalBaseImpl, R(Args...)>;
+	using base_type = module_filter<ConditionalSignalImpl, R(Args...)>;
+
+	using default_modules = list<ConditionSwitch>;
 };
 
 // -------------------------------------------------------------------------------------------------
 
 template <typename RType, typename... Args, typename... Modules>
-class SwitchSignalImpl<RType(Args...), Modules...> : public SignalBaseImpl<RType(Args...), Modules...> {
-public:
-	using base_type = SignalBaseImpl<RType(Args...), Modules...>;
-	using this_type = SwitchSignalImpl<RType(Args...), Modules...>;
-private:
-	bool enabled = true;
-public:
-	inline void enable() {
-		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
-		enabled = true;
-	}
-	inline void disable() {
-		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
-		enabled = false;
-	}
-	inline typename base_type::result_type fire(Args... args) {
-		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
-		if (enabled) {
-			return this->fireImpl(std::forward<Args>(args)...);
-		} else {
-			auto acc = base_type::accumulator::create();
-			return base_type::accumulator::result(acc);
-		}
-	}
-	inline typename base_type::result_type operator()(Args... args) {
-		return fire(std::forward<Args>(args)...);
-	}
+class SwitchSignalImpl<RType(Args...), Modules...>
+		: public ConditionalSignalImpl<RType(Args...), Modules...> {
 };
 
 // === Aliases =====================================================================================

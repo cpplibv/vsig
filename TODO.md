@@ -1,6 +1,9 @@
 // Stack -------------------------------------------------------------------------------------------
 
-Implement more shit (SignalTypes)
+Routing Signal
+-- commit
+Dynamic Accumulator
+Accumulator Host
 -- commit
 Trackable and Trackable API
 Trackable type ereaser instead of inheritance

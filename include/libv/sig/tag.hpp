@@ -11,6 +11,7 @@ namespace tag {
 struct accumulator {};
 struct thread_policy {};
 struct history_size {};
+struct condition {};
 
 } //namespace tag
 

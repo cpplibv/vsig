@@ -1,6 +1,8 @@
-// File: Accumulator.hpp, Created on 2014. augusztus 9. 16:07, Author: Vader
+// File: module.hpp, Created on 2014. augusztus 9. 16:07, Author: Vader
 
 #pragma once
+
+#include <atomic>
 
 #include "tag.hpp"
 #include "type_traits.hpp"
@@ -9,23 +11,26 @@ namespace libv {
 
 // -------------------------------------------------------------------------------------------------
 
-// template <typename T, typename R = T>
+//
+//
+// =================================================================================================
+//     Accumulator Implementations
+// =================================================================================================
+//
+//
 // Concept Accumulator {
 //	using module = tag_type<tag::accumulator>;
 //	Accumulator()
 //		- Accumulator should be default constructible
-//	inline bool add();
+//	inline bool add(R1);
 //		- returns true on logical shortcut, marking the last necessary call
-//	inline R result();
+//		- R1 will match the callbacks return type
+//		- R1 can be void
+//	inline R2 result();
 //		- returns the accumulated results
+//		- R2 is not restricted
+//		- R2 can be void
 //};
-//
-// template <>
-// Concept Accumulator<void> {
-//	using accumulator_tag = void;
-//};
-
-// -------------------------------------------------------------------------------------------------
 
 template <typename T>
 struct _accumulator_traits_add_helper {
@@ -195,5 +200,84 @@ struct AccumulatorLimiter<void, N> : AccumulatorBase {
 		return counter >= N;
 	}
 };
+
+//
+//
+// =================================================================================================
+//     Condition Implementations
+// =================================================================================================
+//
+//
+// Concept Condition {
+//	using module = tag_type<tag::condition>;
+//	DynamicCondition()
+//		- Accumulator should be default constructible
+//	inline bool check(Args...);
+//		- returns true if the input is valid, and distribution is desired
+//		- at least protected visibility required
+//		- Args... will match the received arguments during fire
+// };
+
+template <typename... Args>
+struct ConditionDynamic {
+	using module = tag_type<tag::condition>;
+private:
+	std::function<bool(Args...)> func;
+protected:
+	inline bool check(Args... args){
+		return func(std::forward<Args>(args)...);
+	}
+public:
+	ConditionDynamic() {
+		func = [](Args...){return true;};
+	}
+
+	template <typename F>
+	void setCondition(F&& func) {
+		this->func = std::forward<F>(func);
+	}
+};
+
+struct ConditionSwitch {
+	using module = tag_type<tag::condition>;
+private:
+	std::atomic<bool> enabled;
+protected:
+	template <typename... Args>
+	inline bool check(Args&&...) {
+		return enabled;
+	}
+public:
+	inline void enable() {
+		enabled = true;
+	}
+	inline void disable() {
+		enabled = false;
+	}
+};
+
+template <typename F>
+struct ConditionStatic {
+	using module = tag_type<tag::condition>;
+private:
+	F func;
+protected:
+	ConditionStatic() = default;
+	template <typename... Args>
+	inline bool check(Args&&... args){
+		return func(std::forward<Args>(args)...);
+	}
+};
+
+struct ConditionTrue {
+	using module = tag_type<tag::condition>;
+protected:
+	ConditionTrue() = default;
+	template <typename... Args>
+	inline bool check(Args&&... args){
+		return true;
+	}
+};
+
 
 } //namespace libv
