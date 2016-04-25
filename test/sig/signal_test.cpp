@@ -1,4 +1,4 @@
-// File: VecTest.cpp, Created on 2014. december 8. 2:19, Author: Vader
+// File: signal_test.cpp, Created on 2014. december 8. 2:19, Author: Vader
 
 #include <catch.hpp>
 
@@ -9,7 +9,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using libv::Signal;
-using libv::CapacitivSignal;
+using libv::CapacitiveSignal;
 using libv::SwitchSignal;
 using libv::HistorySignal;
 
@@ -63,12 +63,12 @@ struct signal_output_into_signal {
 };
 
 TEST_CASE("Signal output into Signal") {
-	test_type_permutator_2<signal_output_into_signal, Signal<>, CapacitivSignal<>>();
+	test_type_permutator_2<signal_output_into_signal, Signal<>, CapacitiveSignal<>>();
 	test_type_permutator_2<signal_output_into_signal, Signal<>, HistorySignal<>>();
 	test_type_permutator_2<signal_output_into_signal, Signal<>, SwitchSignal<>>();
 
-	test_type_permutator_2<signal_output_into_signal, CapacitivSignal<>, HistorySignal<>>();
-	test_type_permutator_2<signal_output_into_signal, CapacitivSignal<>, SwitchSignal<>>();
+	test_type_permutator_2<signal_output_into_signal, CapacitiveSignal<>, HistorySignal<>>();
+	test_type_permutator_2<signal_output_into_signal, CapacitiveSignal<>, SwitchSignal<>>();
 
 	test_type_permutator_2<signal_output_into_signal, HistorySignal<>, SwitchSignal<>>();
 }
@@ -404,127 +404,4 @@ TEST_CASE("Signal multi thread stress") {
 
 	t0.join();
 	t1.join();
-}
-
-// === CapacitivSignal =============================================================================
-
-TEST_CASE("CapacitivSignal Test") {
-	CapacitivSignal<int> source;
-	SpyResultTypeFor(source) result;
-	source.output(spyInto<void, int>(result));
-
-	SECTION("Flushing an empty signal result no output") {
-		source.flush();
-		CHECK(result.size() == 0u);
-	}
-
-	SECTION("Firing then flushing reaches the output") {
-		source.fire(0);
-		CHECK(result.size() == 0u);
-
-		source.flush();
-		CHECK(result.size() == 1u);
-	}
-
-	SECTION("Firing multiple time then flushing reaches the output") {
-		source.fire(0);
-		source.fire(0);
-		CHECK(result.size() == 0u);
-
-		source.flush();
-		CHECK(result.size() == 2u);
-	}
-}
-
-// === SwitchSignal ===========================================================================
-
-TEST_CASE("SwitchSignal Test") {
-	SwitchSignal<int> source;
-	SpyResultTypeFor(source) result;
-	source.output(spyInto<void, int>(result));
-
-	SECTION("By default firing reaches the output") {
-		source.fire(0);
-		CHECK(result.size() == 1u);
-	}
-
-	SECTION("Output can be disabled") {
-		source.disable();
-		source.fire(0);
-		CHECK(result.size() == 0u);
-	}
-
-	SECTION("Output can be re-enabled") {
-		source.disable();
-		source.enable();
-		source.fire(0);
-		CHECK(result.size() == 1u);
-	}
-}
-
-// === HistorySignal ===============================================================================
-
-TEST_CASE("HistorySignal Test") {
-	HistorySignal<int> source;
-	SpyResultTypeFor(source) result1;
-	SpyResultTypeFor(source) result2;
-
-	SECTION("Connection without history result no output") {
-		source.output(spyInto<void, int>(result1));
-		CHECK(result1.size() == 0u);
-	}
-
-	SECTION("Fire after connection result output from fire") {
-		source.output(spyInto<void, int>(result1));
-		source.fire(42);
-		REQUIRE(result1.size() == 1u);
-		CHECK(std::get<0>(result1[0]) == 42);
-	}
-
-	SECTION("Fire before connection result output from histroy") {
-		source.fire(42);
-		source.output(spyInto<void, int>(result1));
-		REQUIRE(result1.size() == 1u);
-		CHECK(std::get<0>(result1[0]) == 42);
-	}
-
-	SECTION("History calls should match the original order") {
-		source.fire(40);
-		source.fire(41);
-		source.fire(42);
-		source.output(spyInto<void, int>(result1));
-		REQUIRE(result1.size() == 3u);
-		CHECK(std::get<0>(result1[0]) == 40);
-		CHECK(std::get<0>(result1[1]) == 41);
-		CHECK(std::get<0>(result1[2]) == 42);
-	}
-
-	SECTION("Connection with cleared history result no output") {
-		source.fire(42);
-		source.clearHistory();
-		source.output(spyInto<void, int>(result1));
-		CHECK(result1.size() == 0u);
-	}
-
-	SECTION("Multiple connection should be handled per connection") {
-		CHECK(result1.size() == 0u);
-		CHECK(result2.size() == 0u);
-
-		source.fire(100);
-		source.output(spyInto<void, int>(result1));
-
-		REQUIRE(result1.size() == 1u);
-		CHECK(std::get<0>(result1[0]) == 100);
-		CHECK(result2.size() == 0u);
-
-		source.fire(200);
-		source.output(spyInto<void, int>(result2));
-
-		REQUIRE(result1.size() == 2u);
-		CHECK(std::get<0>(result1[0]) == 100);
-		CHECK(std::get<0>(result1[1]) == 200);
-		REQUIRE(result2.size() == 2u);
-		CHECK(std::get<0>(result1[0]) == 100);
-		CHECK(std::get<0>(result1[1]) == 200);
-	}
 }

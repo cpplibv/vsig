@@ -10,7 +10,7 @@
 namespace libv {
 
 //concept ThreadPolicy {
-//	using thread_policy_tag = void;
+//	using module = tag_type<tag::thread_policy>;
 //	void readLock();
 //	void readUnlock();
 //	void writeLock();

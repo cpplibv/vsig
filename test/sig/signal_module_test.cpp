@@ -15,13 +15,15 @@ void static_compile_time_module_test() {
 	SignalType<int(int), AccumulatorSum<int>, SingleThread> sig2;
 	SignalType<int(int), SingleThread, AccumulatorSum<int>> sig3;
 	SignalType<int, int> sig5;
+	SignalType<SingleThread, int(int)> sig6;
+	SignalType<SingleThread, AccumulatorSum<int>, int(int)> sig7;
 
 	CHECK(true);
 }
 
-TEST_CASE("Static compile time modul test") {
+TEST_CASE("Static compile time module test") {
 	static_compile_time_module_test<Signal>();
-	static_compile_time_module_test<CapacitivSignal>();
+	static_compile_time_module_test<CapacitiveSignal>();
 	static_compile_time_module_test<SwitchSignal>();
 	static_compile_time_module_test<HistorySignal>();
 }
@@ -35,6 +37,3 @@ TEST_CASE("Static compile time modul test") {
 //SignalType<int, SingleThread> sig4; // invalid
 //SignalType<SingleThread> sig4; // invalid
 //SignalType<AccumulatorSum<int>, SingleThread> sig4; // invalid
-//
-//SignalType<SingleThread, int(int)> sig4; // it could be valid
-//SignalType<SingleThread, AccumulatorSum<int>, int(int)> sig4; // it could be valid

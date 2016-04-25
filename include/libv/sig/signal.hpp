@@ -32,23 +32,24 @@
 //				- mixed syntax Signal<int, AccumulatorSum<int>, SingleThread>
 // TODO P3: Improve module filter to handle only modules without call syntax as modules
 //			So change decider condition from has call syntax to all module
-//
 // TODO P4: Current accumulator rename to "combined result"? and add a bigger encapsulation
 //			which can provide (through inheritance?) runtime signal non-fire-local store and logic
-// TODO P5: History signal output auto-flush thread safety, how it is? Dependent on fire thread safety..?
+// TODO P5: HistorySignal:
+//				- Dynamic history size
+//				- Circular buffer
+//				- Output auto-flush thread safety
+
+// TODO P4: ConditionalSignal - Forward the call only if the predicate function allows it
+// TODO P4: RoutingSignal [set/get]Condition(SignalRouter)
 
 // TODO P5: AdaptivSignal [in/out]put (same, generic lambda...)
-// TODO P5: RoutingSignal [set/get]Condition(SignalRouter)
-// TODO P5: PrioritySignal - Modified capacitiv where the storage is a priority que
+// TODO P5: PrioritySignal - Modified capacitive where the storage is a priority que
 // 			May consider a "predicate" function for generating priority
-// TODO P5: UniqueSignal - Modified capacitiv where the storage is unique
+// TODO P5: UniqueSignal - Modified capacitive where the storage is unique
 // 			May consider a "compare" function for determining uniqueness
 //			May consider merging and collapsing awaiting events buy a new one
 //			This would be through some template extensibility...
 // TODO P5: MoveSignal - allows && move as arg, but only has one output
-// TODO P5: ConditionalSignal - Forward the call only if the predicate function allows it
-// TODO P5: HistorySignal - Stores and forward calls but also distribute them to late subscribers.
-//			Also a template size_t N for limit max call memory number
 // TODO P5: TransformSignal - Manipulating the arguments flowing through it using a
 // 			manipulator function. Similar to std::transform.
 // TODO P5: AsnycSignal - Put the fire method and the arguments into a worker
@@ -447,25 +448,25 @@ public:
 	}
 };
 
-// === CapacitivSignal =============================================================================
+// === CapacitiveSignal ============================================================================
 
 template <typename...>
-class CapacitivSignalImpl;
+class CapacitiveSignalImpl;
 
 // -------------------------------------------------------------------------------------------------
 
 template <typename R, typename... Args>
-struct module_filter<CapacitivSignalImpl, R(Args...)> {
+struct module_filter<CapacitiveSignalImpl, R(Args...)> {
 	using base_type = module_filter<SignalBaseImpl, R(Args...)>;
 };
 
 // -------------------------------------------------------------------------------------------------
 
 template <typename RType, typename... Args, typename... Modules>
-class CapacitivSignalImpl<RType(Args...), Modules...> : public SignalBaseImpl<RType(Args...), Modules...> {
+class CapacitiveSignalImpl<RType(Args...), Modules...> : public SignalBaseImpl<RType(Args...), Modules...> {
 public:
 	using base_type = SignalBaseImpl<RType(Args...), Modules...>;
-	using this_type = CapacitivSignalImpl<RType(Args...), Modules...>;
+	using this_type = CapacitiveSignalImpl<RType(Args...), Modules...>;
 private:
 	std::vector<std::tuple<typename std::remove_reference<Args>::type...>> argQue;
 private:
@@ -574,7 +575,10 @@ template <typename... Args>
 using Signal = signal_alias<SignalImpl, Args...>;
 
 template <typename... Args>
-using CapacitivSignal = signal_alias<CapacitivSignalImpl, Args...>;
+using CapacitiveSignal = signal_alias<CapacitiveSignalImpl, Args...>;
+
+template <typename... Args>
+using ConditionalSignal = void;
 
 template <typename... Args>
 using SwitchSignal = signal_alias<SwitchSignalImpl, Args...>;

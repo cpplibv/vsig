@@ -3,6 +3,7 @@
 #pragma once
 
 #include <map>
+#include <mutex>
 
 namespace libv {
 
