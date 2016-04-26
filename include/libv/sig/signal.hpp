@@ -36,6 +36,8 @@
 //			But, do i really considering cross module operations for solving this?
 
 // TODO P4: RoutingSignal [set/get]Condition(SignalRouter)
+// TODO P4: TransformSignal - Manipulating the arguments flowing through it using a
+// 			manipulator function. Similar to std::transform.
 
 // TODO P5: AdaptivSignal [in/out]put (same, generic lambda...)
 // TODO P5: PrioritySignal - Modified capacitive where the storage is a priority que
@@ -45,8 +47,6 @@
 //			May consider merging and collapsing awaiting events buy a new one
 //			This would be through some template extensibility...
 // TODO P5: MoveSignal - allows && move as arg, but only has one output
-// TODO P5: TransformSignal - Manipulating the arguments flowing through it using a
-// 			manipulator function. Similar to std::transform.
 // TODO P5: AsnycSignal - Put the fire method and the arguments into a worker
 // 			thread que to call this signal in async mode. (template executor?)
 // 			Note: the main task of this signal is to use the executor for callbacks
