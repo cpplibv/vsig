@@ -310,7 +310,7 @@ using namespace libv;
 //
 //template <typename MF>
 //struct summarieze_module_filter_default_modules<MF, void_t<typename MF::base_type>> {
-//	using type = typename concat_list<
+//	using type = typename list_concat<
 //				typename get_module_filter_default_modules<MF>::type,
 //				typename summarieze_module_filter_default_modules<typename MF::base_type>::type
 //			>::type;
@@ -325,7 +325,7 @@ using namespace libv;
 //
 //template <typename MF>
 //struct summarieze_module_filter_parameter_tags<MF, void_t<typename MF::base_type>> {
-//	using type = typename concat_list<
+//	using type = typename list_concat<
 //				typename get_module_filter_parameter_tags<MF>::type,
 //				typename summarieze_module_filter_parameter_tags<typename MF::base_type>::type
 //			>::type;
@@ -343,7 +343,7 @@ using namespace libv;
 //
 //template <typename TagsHead, typename... TagsTail, typename... Moduls>
 //struct foreach_select<list<TagsHead, TagsTail...>, list<Moduls...>> {
-//	using type = typename append<
+//	using type = typename list_append<
 //				select<TagsHead, Moduls...>,
 //				typename foreach_select<list<TagsTail...>, list<Moduls...>>::type
 //			>::type;
@@ -359,11 +359,11 @@ using namespace libv;
 //	using raw_filter = module_filter<Signal, RType(Args...)>;
 //
 //	using summariezed_defaults = typename summarieze_module_filter_default_modules<raw_filter>::type;
-//	using modules_with_defaults = typename concat_list<list<Modules...>, summariezed_defaults>::type;
+//	using modules_with_defaults = typename list_concat<list<Modules...>, summariezed_defaults>::type;
 //	using summariezed_tags = typename summarieze_module_filter_parameter_tags<raw_filter>::type;
 //	using modules_to_be_applied = typename foreach_select<summariezed_tags, modules_with_defaults>::type;
 //
-//	using type = typename append<RType(Args...), modules_to_be_applied>::type;
+//	using type = typename list_append<RType(Args...), modules_to_be_applied>::type;
 //};
 //
 //// -------------------------------------------------------------------------------------------------
@@ -456,6 +456,21 @@ int main(int, char**) {
 	signal0.fire(2);
 	signal0.fire(3);
 
+	libv::Signal<SingleThread, int> signal2;
+	libv::Signal<SingleThread> signal3;
+	signal2.fire(3);
+	signal3.fire();
+
 	std::cout << "-- eof --" << std::endl;
 	return 0;
 }
+
+
+
+//signal_alias			<Signal, RawArgs>
+//signal_arg_parse		<Signal, RawArgs>
+//		::cs signature
+//		::list modules
+//
+//
+//signal_alias_helper		<Signal, RType, list<Args>, list<Modules>>

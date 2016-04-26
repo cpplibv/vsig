@@ -51,7 +51,7 @@ struct _accumulator_traits_add_helper<void> {
 
 template <typename Accumulator>
 struct accumulator_traits {
-	static_assert(is_module<Accumulator, tag::accumulator>::value,
+	static_assert(is_module_tag<Accumulator, tag::accumulator>::value,
 			"accumulator_traits can only be used with an accumulator.\n"
 			"for more information see accumulator concept");
 	using result_type = decltype(std::declval<Accumulator>().result());

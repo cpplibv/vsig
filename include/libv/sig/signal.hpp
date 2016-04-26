@@ -21,17 +21,11 @@
 //			accessors to the hub wrapping the necessary minimal information.
 //			SignalHub is a trackable
 //			Both method should be kept
-// TODO P3: Remove output overload based on SignalType and change to concept on operator() and Trackable
 // TODO P3: Decide the fate of input functions. Could be implemented with CRTP...
 // IDEA: ...and this CRTP could be used for disabling default functions... or not.
 // TODO P3: Remove reference, remove constness from results type?
 // TODO P3: In Signal Hub-Proxy a connection can be represented with only 1 ptr where the last last
 //			bit of the address can represent the direction!
-// TODO P3: Improve module filter to warn about:
-//				- unused parameters (only 0..1 occurrence per tag or call syntax are allowed)
-//				- mixed syntax Signal<int, AccumulatorSum<int>, SingleThread>
-// TODO P3: Improve module filter to handle only modules without call syntax as modules
-//			So change decider condition from has call syntax to all module
 // TODO P4: Current accumulator rename to "combined result"? and add a bigger encapsulation
 //			which can provide (through inheritance?) runtime signal non-fire-local store and logic
 // TODO P5: HistorySignal:
@@ -41,7 +35,6 @@
 // TODO P5: Thread safety of modules: exposed function due to inheritance are the danger
 //			But, do i really considering cross module operations for solving this?
 
-// TODO P4: ConditionalSignal - Forward the call only if the predicate function allows it
 // TODO P4: RoutingSignal [set/get]Condition(SignalRouter)
 
 // TODO P5: AdaptivSignal [in/out]put (same, generic lambda...)
@@ -149,10 +142,10 @@ struct summarieze_module_filter_default_modules {
 
 template <typename MF>
 struct summarieze_module_filter_default_modules<MF, void_t<typename MF::base_type>> {
-	using type = typename concat_list<
+	using type = list_concat_t<
 				typename get_module_filter_default_modules<MF>::type,
 				typename summarieze_module_filter_default_modules<typename MF::base_type>::type
-			>::type;
+			>;
 };
 
 template <typename MF, typename = void>
@@ -162,10 +155,10 @@ struct summarieze_module_filter_parameter_tags {
 
 template <typename MF>
 struct summarieze_module_filter_parameter_tags<MF, void_t<typename MF::base_type>> {
-	using type = typename concat_list<
+	using type = list_concat_t<
 				typename get_module_filter_parameter_tags<MF>::type,
 				typename summarieze_module_filter_parameter_tags<typename MF::base_type>::type
-			>::type;
+			>;
 };
 
 // -------------------------------------------------------------------------------------------------
@@ -180,10 +173,10 @@ struct foreach_select<list<>, list<Modules...>> {
 
 template <typename TagsHead, typename... TagsTail, typename... Modules>
 struct foreach_select<list<TagsHead, TagsTail...>, list<Modules...>> {
-	using type = typename append<
+	using type = list_append_t<
 				select<TagsHead, Modules...>,
 				typename foreach_select<list<TagsTail...>, list<Modules...>>::type
-			>::type;
+			>;
 };
 
 // -------------------------------------------------------------------------------------------------
@@ -196,35 +189,111 @@ struct process_module_filter<Signal, RType(Args...), list<Modules...>> {
 	using raw_filter = module_filter<Signal, RType(Args...)>;
 
 	using summariezed_defaults = typename summarieze_module_filter_default_modules<raw_filter>::type;
-	using modules_with_defaults = typename concat_list<list<Modules...>, summariezed_defaults>::type;
+	using modules_with_defaults = list_concat_t<list<Modules...>, summariezed_defaults>;
 	using summariezed_tags = typename summarieze_module_filter_parameter_tags<raw_filter>::type;
 	using modules_to_be_applied = typename foreach_select<summariezed_tags, modules_with_defaults>::type;
 
-	using type = typename append<RType(Args...), modules_to_be_applied>::type;
+	using type = list_append_t<RType(Args...), modules_to_be_applied>;
 };
 
 // -------------------------------------------------------------------------------------------------
 
-template <template <typename...> class Signal, typename... Modules>
-struct signal_with_filtered_moduls {
+template <typename... Args>
+struct split_modules;
+
+template <>
+struct split_modules<> {
+	using arguments = list<>;
+	using modules = list<>;
+};
+
+template <typename Head, typename... Args>
+struct split_modules<Head, Args...> {
+	using arguments = typename std::conditional<
+			!is_module<Head>::value && !is_call_signature<Head>::value,
+				list_append_t<Head, typename split_modules<Args...>::arguments>,
+				typename split_modules<Args...>::arguments
+			>::type;
+	using modules = typename std::conditional<
+			is_module<Head>::value && !is_call_signature<Head>::value,
+				list_append_t<Head, typename split_modules<Args...>::modules>,
+				typename split_modules<Args...>::modules
+			>::type;
+};
+
+// -------------------------------------------------------------------------------------------------
+
+template <typename List, typename Acc>
+struct check_module_count_helper;
+
+template <typename AccList>
+struct check_module_count_helper<list<>, AccList> {
+	static constexpr bool value = true;
+};
+
+template <typename Head, typename... Tail, typename AccList>
+struct check_module_count_helper<list<Head, Tail...>, AccList> {
+	static constexpr bool value = std::conditional<
+				list_search<typename get_module_tag<typename Head::module>::type, AccList>::value,
+				std::false_type,
+				check_module_count_helper<list<Tail...>,
+						list_append_t<typename get_module_tag<typename Head::module>::type, AccList>>
+			>::type::value;
+};
+
+template <typename List>
+struct check_module_count {
+	static constexpr bool value = check_module_count_helper<List, list<>>::value;
+};
+
+// -------------------------------------------------------------------------------------------------
+
+template <template <typename...> class Signal, typename... Args>
+struct signal_arg_parse {
 	using signature = typename std::conditional<
-				search_call_signature<Modules...>::value,
-				typename select_call_signature<Modules..., void(void)>::type,
-				void(Modules...)
+				search_call_signature<Args...>::value,
+				typename select_call_signature<Args..., void(void)>::type,
+				typename list_to_signature<
+							list_append_t<void, typename split_modules<Args...>::arguments>
+						>::type
 			>::type;
-	using moduls = typename std::conditional<
-				search_call_signature<Modules...>::value,
-				list<Modules...>,
-				list<>
-			>::type;
-	using final_modul_list = typename process_module_filter<Signal, signature, moduls>::type;
-	using type = typename apply_modul_pack<Signal, final_modul_list>::type;
+	using modules = typename split_modules<Args...>::modules;
+
+	static_assert(
+			!(search_call_signature<Args...>::value &&
+			(list_size_v<typename split_modules<Args...>::arguments> > 0)),
+				"\n\tInvalid combination of signal parameters / modules:"
+				"\n\t\tRedundant function argument parameter as,"
+				"\n\t\tboth a function call signature and at least one non module parameter present."
+				"\n\tTip - If you want to add new custom modules make sure you added the module meta tag."
+			);
+	static_assert(
+			!(count_call_signature<Args...>::value > 1),
+				"\n\tInvalid combination of signal parameters / modules:"
+				"\n\t\tMultiple call signature. Only ONE or ZERO call signature can be present."
+			);
+	static_assert(
+			(check_module_count<modules>::value),
+				"\n\tInvalid combination of signal parameters / modules:"
+				"\n\t\tMultiple parameters / modules with the same meta tag (same type)."
+			);
 };
 
 // -------------------------------------------------------------------------------------------------
 
 template <template <typename...> class Signal, typename... Modules>
-using signal_alias = typename signal_with_filtered_moduls<Signal, Modules...>::type;
+struct signal_alias {
+	using parsed_signature = typename signal_arg_parse<Signal, Modules...>::signature;
+	using parsed_modules = typename signal_arg_parse<Signal, Modules...>::modules;
+
+	using modules = typename process_module_filter<Signal, parsed_signature, parsed_modules>::type;
+	using type = typename apply_modul_pack<Signal, modules>::type;
+};
+
+// -------------------------------------------------------------------------------------------------
+
+template <template <typename...> class Signal, typename... RawArgs>
+using signal_alias_t = typename signal_alias<Signal, RawArgs...>::type;
 
 // -------------------------------------------------------------------------------------------------
 
@@ -571,43 +640,22 @@ public:
 	}
 };
 
-// === SwitchSignal ================================================================================
-
-template <typename...>
-class SwitchSignalImpl;
-
-// -------------------------------------------------------------------------------------------------
-
-template <typename R, typename... Args>
-struct module_filter<SwitchSignalImpl, R(Args...)> {
-	using base_type = module_filter<ConditionalSignalImpl, R(Args...)>;
-
-	using default_modules = list<ConditionSwitch>;
-};
-
-// -------------------------------------------------------------------------------------------------
-
-template <typename RType, typename... Args, typename... Modules>
-class SwitchSignalImpl<RType(Args...), Modules...>
-		: public ConditionalSignalImpl<RType(Args...), Modules...> {
-};
-
 // === Aliases =====================================================================================
 
 template <typename... Args>
-using Signal = signal_alias<SignalImpl, Args...>;
+using Signal = signal_alias_t<SignalImpl, Args...>;
 
 template <typename... Args>
-using CapacitiveSignal = signal_alias<CapacitiveSignalImpl, Args...>;
+using CapacitiveSignal = signal_alias_t<CapacitiveSignalImpl, Args...>;
 
 template <typename... Args>
-using ConditionalSignal = signal_alias<ConditionalSignalImpl, Args...>;
+using ConditionalSignal = signal_alias_t<ConditionalSignalImpl, Args...>;
 
 template <typename... Args>
-using HistorySignal = signal_alias<HistorySignalImpl, Args...>;
+using HistorySignal = signal_alias_t<HistorySignalImpl, Args...>;
 
 template <typename... Args>
-using SwitchSignal = signal_alias<SwitchSignalImpl, Args...>;
+using SwitchSignal = signal_alias_t<ConditionalSignalImpl, Args..., ConditionSwitch>;
 
 // -------------------------------------------------------------------------------------------------
 
