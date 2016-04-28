@@ -18,17 +18,18 @@ namespace libv {
 // =================================================================================================
 //
 //
+
 // Concept Accumulator {
 //	using module = tag_type<tag::accumulator>;
 //	Accumulator()
 //		- Accumulator should be default constructible
 //	inline bool add(R1);
-//		- returns true on logical shortcut, marking the last necessary call
+//		- returns true on logical shortcut, marking no more call is necessary
 //		- R1 will match the callbacks return type
 //		- R1 can be void
 //	inline R2 result();
 //		- returns the accumulated results
-//		- R2 is not restricted
+//		- R2 is not restricted to match R1
 //		- R2 can be void
 //};
 
@@ -208,12 +209,13 @@ struct AccumulatorLimiter<void, N> : AccumulatorBase {
 // =================================================================================================
 //
 //
+
 // Concept Condition {
 //	using module = tag_type<tag::condition>;
-//	DynamicCondition()
-//		- Accumulator should be default constructible
+//	Condition()
+//		- Condition should be default constructible
 //	inline bool check(Args...);
-//		- returns true if the input is valid, and distribution is desired
+//		- returns true if the input is valid and distribution is desired
 //		- at least protected visibility required
 //		- Args... will match the received arguments during fire
 // };
@@ -279,5 +281,6 @@ protected:
 	}
 };
 
+// -------------------------------------------------------------------------------------------------
 
 } //namespace libv

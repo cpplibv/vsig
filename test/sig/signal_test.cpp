@@ -12,6 +12,7 @@ using libv::Signal;
 using libv::CapacitiveSignal;
 using libv::SwitchSignal;
 using libv::HistorySignal;
+using libv::ConditionalSignal;
 
 // -------------------------------------------------------------------------------------------------
 
@@ -66,11 +67,16 @@ TEST_CASE("Signal output into Signal") {
 	test_type_permutator_2<signal_output_into_signal, Signal<>, CapacitiveSignal<>>();
 	test_type_permutator_2<signal_output_into_signal, Signal<>, HistorySignal<>>();
 	test_type_permutator_2<signal_output_into_signal, Signal<>, SwitchSignal<>>();
+	test_type_permutator_2<signal_output_into_signal, Signal<>, ConditionalSignal<>>();
 
 	test_type_permutator_2<signal_output_into_signal, CapacitiveSignal<>, HistorySignal<>>();
 	test_type_permutator_2<signal_output_into_signal, CapacitiveSignal<>, SwitchSignal<>>();
+	test_type_permutator_2<signal_output_into_signal, CapacitiveSignal<>, ConditionalSignal<>>();
 
 	test_type_permutator_2<signal_output_into_signal, HistorySignal<>, SwitchSignal<>>();
+	test_type_permutator_2<signal_output_into_signal, HistorySignal<>, ConditionalSignal<>>();
+
+	test_type_permutator_2<signal_output_into_signal, SwitchSignal<>, ConditionalSignal<>>();
 }
 
 TEST_CASE("SignalRelaySignal") {

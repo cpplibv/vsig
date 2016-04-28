@@ -50,12 +50,12 @@ protected:
 		while (!connections.empty())
 			this->disconnect(connections.begin()->first, true);
 	}
-	virtual ~Trackable() {
-		disconnectAll();
-	}
 public:
 	Trackable() { };
 	Trackable(const Trackable& other) = delete;
+	virtual ~Trackable() {
+		disconnectAll();
+	}
 };
 
 } //namespace libv

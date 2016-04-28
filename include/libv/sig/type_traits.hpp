@@ -168,15 +168,14 @@ template <typename T, typename Tag, typename = void> struct is_module_tag : std:
 template <typename T, typename Tag> struct is_module_tag<T, Tag, void_t<typename T::module>> :
 	is_t1_same<typename T::module, Tag>{ };
 
-template <typename Tag, typename... Modules>
-struct select_helper {
-	template <typename T> struct is_modul_with_bound_tag : is_module_tag<T, Tag> {
-	};
-	using type = typename ::libv::find_first<is_modul_with_bound_tag, Modules...>::type;
+template <typename Tag>
+struct is_module_bound_tag {
+	template <typename T>
+	using type = is_module_tag<T, Tag>;
 };
 
 template <typename Tag, typename... Modules>
-using select = typename select_helper<Tag, Modules...>::type;
+using select = typename ::libv::find_first<is_module_bound_tag<Tag>::template type, Modules...>::type;
 
 // is call signature -------------------------------------------------------------------------------
 

@@ -59,3 +59,15 @@ https://github.com/NoAvailableAlias/signal-slot-benchmarks
 
 add_compile_options(-flto=13)
 add_compile_options(-fconcepts)
+
+full CRPT maybe not necessary, partial CRTP?
+partial CRTP output?
+partial CRTP fire?
+
+Isnt this partial CRTP is one form of the CTVF?
+
+HEHEHEHEEEe: this is a valid syntax...
+typename = typename base_type::template is_acceptable_func<Func>
+                    ^^^^^^^^^ dependent scope
+
+

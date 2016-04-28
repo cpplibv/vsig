@@ -335,6 +335,9 @@ public:
 
 	using result_type = typename accumulator::result_type;
 
+	template <typename F>
+	using is_acceptable_func = decltype(std::function<RType(Args...)>(std::declval<F>()));
+
 protected:
 	thread_policy threadPolicy;
 	mutable std::recursive_mutex mutex;
@@ -406,29 +409,34 @@ public:
 //	}
 
 	// ---------------------------------------------------------------------------------------------
-	template <typename Func>
+	template <typename Func, typename = is_acceptable_func<Func>>
 	inline void output(Func&& func) {
 		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
 		outputs.emplace(nullptr, std::forward<Func>(func));
-		//TODO P4: static assert for callable RType(Args...)
-		//TODO P4: handle if F is derived from Trackable
-		//TODO P4: sfiane for std function?, ehh... this overload will need sfiane if i collapse
-		//		output signal into this...
 	}
-	template <typename Derivered, typename Object = Derivered>
-	inline void output(Derivered& obj, RType(Object::*func)(Args...) = &Object::operator()) {
+	template <typename Func, typename = is_acceptable_func<Func>>
+	inline void output(TrackableBase& obj, Func&& func) {
+		output(&obj, std::forward<Func>(func));
+	}
+	template <typename Func, typename = is_acceptable_func<Func>>
+	inline void output(TrackableBase* obj, Func&& func) {
+		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
+
+		outputs.emplace(obj, std::forward<Func>(func));
+		static_cast<TrackableBase*> (obj)->connect(this, true);
+	}
+	template <typename Derived, typename Object = Derived>
+	inline void output(Derived& obj, RType(Object::*func)(Args...) = &Derived::operator()) {
 		output(&obj, func);
 	}
-	template <typename Derivered, typename Object = Derivered>
-	inline void output(Derivered* obj, RType(Object::*func)(Args...) = &Object::operator()) {
+	template <typename Derived, typename Object = Derived>
+	inline void output(Derived* obj, RType(Object::*func)(Args...) = &Derived::operator()) {
 		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
 		static_assert(std::is_base_of<TrackableBase, Object>::value,
 				"Object type has to be Derived from TrackableBase "
 				"(You may want to consider inheriting from libv::Trackable).");
-		static_assert(std::is_base_of<Object, Derivered>::value,
+		static_assert(std::is_base_of<Object, Derived>::value,
 				"Member function has to be the derived member's function as Object");
-		//TODO P4: enforce Deriver base of Object
-		//		for this start with some unit tests: base/base derived/base base/derived derived/derived
 
 		outputs.emplace(obj, [obj, func](Args... args) {
 			(obj->*func)(std::forward<Args>(args)...);
@@ -544,8 +552,6 @@ class ConditionalSignalImpl<RType(Args...), Condition, Modules...>
 public:
 	using base_type = SignalBaseImpl<RType(Args...), Modules...>;
 	using this_type = ConditionalSignalImpl<RType(Args...), Condition, Modules...>;
-private:
-	bool enabled = true;
 public:
 	inline typename base_type::result_type fire(Args... args) {
 		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
@@ -603,17 +609,25 @@ private:
 		}
 	}
 public:
-	template <typename F>
-	inline void output(F&& func) {
+	template <typename Func, typename = typename base_type::template is_acceptable_func<Func>>
+	inline void output(Func&& func) {
 		flushHelper(func, std::index_sequence_for<Args...>{});
-		base_type::output(std::forward<F>(func));
+		base_type::output(std::forward<Func>(func));
 	}
-	template <typename Derivered, typename Object = Derivered>
-	inline void output(Derivered& obj, RType(Object::*func)(Args...) = &Object::operator()) {
+	template <typename Func, typename = typename base_type::template is_acceptable_func<Func>>
+	inline void output(TrackableBase& obj, Func&& func) {
+		output(&obj, std::forward<Func>(func));
+	}
+	template <typename Func, typename = typename base_type::template is_acceptable_func<Func>>
+	inline void output(TrackableBase* obj, Func&& func) {
+		base_type::output(obj, std::forward<Func>(func));
+	}
+	template <typename Derived, typename Object = Derived>
+	inline void output(Derived& obj, RType(Object::*func)(Args...) = &Derived::operator()) {
 		output(&obj, func);
 	}
-	template <typename Derivered, typename Object = Derivered>
-	inline void output(Derivered* obj, RType(Object::*func)(Args...) = &Object::operator()) {
+	template <typename Derived, typename Object = Derived>
+	inline void output(Derived* obj, RType(Object::*func)(Args...) = &Derived::operator()) {
 		flushHelper([=](Args... args){
 			(obj->*func)(args...);
 		}, std::index_sequence_for<Args...>{});
