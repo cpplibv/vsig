@@ -90,7 +90,6 @@ void signal_output_into_everything() {
 }
 
 TEST_CASE("Signal output into everything") {
-	//TODO P5: execute_test_function_with_every_signal<signal_output_into_everything>();
 	signal_output_into_everything<libv::Signal>();
 	signal_output_into_everything<libv::CapacitiveSignal>();
 	signal_output_into_everything<libv::SwitchSignal>();

@@ -335,6 +335,7 @@ public:
 
 	using result_type = typename accumulator::result_type;
 
+	using module = tag_type<tag::signal>;
 	template <typename F>
 	using is_acceptable_func = decltype(std::function<RType(Args...)>(std::declval<F>()));
 
@@ -654,6 +655,72 @@ public:
 	}
 };
 
+// === RoutingSignal ===============================================================================
+
+template <typename...>
+class RoutingSignalImpl;
+
+template <typename T>
+struct route_address {
+	using module = tag_type<tag::route_address>;
+	using address_type = T;
+};
+
+// -------------------------------------------------------------------------------------------------
+
+template <typename R, typename... Args>
+struct module_filter<RoutingSignalImpl, R(Args...)> {
+	using base_type = module_filter<SignalBaseImpl, R(Args...)>;
+
+	using default_modules = list<route_address<size_t>>;
+	using parameter_tags = list<tag::route_address>;
+};
+
+// -------------------------------------------------------------------------------------------------
+
+template <typename RType, typename... Args, typename RouteAddress, typename... Modules>
+class RoutingSignalImpl<RType(Args...), RouteAddress, Modules...>
+		: public SignalBaseImpl<RType(Args...), Modules...> {
+public:
+	using base_type = SignalBaseImpl<RType(Args...), Modules...>;
+	using this_type = RoutingSignalImpl<RType(Args...), RouteAddress, Modules...>;
+public:
+	using address = typename RouteAddress::address_type;
+
+//	template <typename Func, typename = typename base_type::template is_acceptable_func<Func>>
+//	inline void output(Func&& func) {
+//		flushHelper(func, std::index_sequence_for<Args...>{});
+//		base_type::output(std::forward<Func>(func));
+//	}
+//	template <typename Func, typename = typename base_type::template is_acceptable_func<Func>>
+//	inline void output(TrackableBase& obj, Func&& func) {
+//		output(&obj, std::forward<Func>(func));
+//	}
+//	template <typename Func, typename = typename base_type::template is_acceptable_func<Func>>
+//	inline void output(TrackableBase* obj, Func&& func) {
+//		base_type::output(obj, std::forward<Func>(func));
+//	}
+//	template <typename Derived, typename Object = Derived>
+//	inline void output(Derived& obj, RType(Object::*func)(Args...) = &Derived::operator()) {
+//		output(&obj, func);
+//	}
+//	template <typename Derived, typename Object = Derived>
+//	inline void output(Derived* obj, RType(Object::*func)(Args...) = &Derived::operator()) {
+//		flushHelper([=](Args... args){
+//			(obj->*func)(args...);
+//		}, std::index_sequence_for<Args...>{});
+//		base_type::output(obj, func);
+//	}
+//	inline void fire(Args... args) {
+//		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
+//		history.emplace_back(args...);
+//		this->fireImpl(args...);
+//	}
+//	inline void operator()(Args... args) {
+//		fire(std::forward<Args>(args)...);
+//	}
+};
+
 // === Aliases =====================================================================================
 
 template <typename... Args>
@@ -669,7 +736,11 @@ template <typename... Args>
 using HistorySignal = signal_alias_t<HistorySignalImpl, Args...>;
 
 template <typename... Args>
+using RoutingSignal = signal_alias_t<RoutingSignalImpl, Args...>;
+
+template <typename... Args>
 using SwitchSignal = signal_alias_t<ConditionalSignalImpl, Args..., ConditionSwitch>;
+
 
 // -------------------------------------------------------------------------------------------------
 

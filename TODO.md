@@ -1,11 +1,15 @@
 // Stack -------------------------------------------------------------------------------------------
 
-Dynamic Accumulator
-Accumulator Host
--- commit
+trackable unified ptr?
+per output store
+route address
+routing logic
 Routing Signal
 -- commit
 Transform Signal
+-- commit
+Dynamic Accumulator
+Accumulator Host
 -- commit
 Trackable and Trackable API
 Trackable type ereaser instead of inheritance

@@ -25,7 +25,7 @@ TEST_CASE("SignalConstruct") {
 
 // --- Input / Output ------------------------------------------------------------------------------
 
-//// Input member function currently disabled
+// Input member function currently disabled
 //TEST_CASE("SignalInputSignal") {
 //	Signal<> source, target;
 //

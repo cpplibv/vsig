@@ -9,9 +9,11 @@ namespace libv {
 namespace tag {
 
 struct accumulator {};
-struct thread_policy {};
-struct history_size {};
 struct condition {};
+struct history_size {};
+struct route_address {};
+struct signal {};
+struct thread_policy {};
 
 } //namespace tag
 

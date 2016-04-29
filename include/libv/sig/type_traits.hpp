@@ -4,6 +4,8 @@
 
 #include <type_traits>
 
+#include "tag.hpp"
+
 namespace libv {
 
 // core --------------------------------------------------------------------------------------------
@@ -237,6 +239,11 @@ struct search_call_signature<RType(Args...), Tail...> : std::true_type {};
 
 template <typename Head, typename... Tail>
 struct search_call_signature<Head, Tail...> : search_call_signature<Tail...> {};
+
+// is_signal ---------------------------------------------------------------------------------------
+
+template <typename SignalType>
+using is_signal = is_module_tag<SignalType, tag::signal>;
 
 // -------------------------------------------------------------------------------------------------
 
