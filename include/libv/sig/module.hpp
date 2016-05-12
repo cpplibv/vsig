@@ -19,6 +19,15 @@ namespace libv {
 //
 //
 
+//template <typename T>
+//concept bool Accumulator() {
+//    return requires(T a) {
+////      using module = tag_type<tag::accumulator>;
+//        {a.add(R1)} -> Boolean;
+//        {a.result()} -> R2;
+//    };
+//}
+
 // Concept Accumulator {
 //	using module = tag_type<tag::accumulator>;
 //	Accumulator()

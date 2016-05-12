@@ -3,6 +3,7 @@ This document is not intended to be read in any way until properly formated.
 Currently this is a random merge of notes that could be in the final version.
 
 Wild Cards to be replaced: <<what>>
+Wild Cards to be reviewed: ((what))
 
 
 
@@ -38,6 +39,31 @@ life time,
 observer_ptr?
 accumulators
 thread policy
+
+### Lifetime / valid call
+A probléma:
+Objektumok közötti kapcsolatok mentén történt hivások nincsenek tekintettel az objektumok élettartalmára
+//Több objektum között kialakított aktív kapcsolat esetén, a kapcsolatot még bármely fél megszünése előtt meg kell szüntetni.
+//Ennek 3 módja lehet:
+//((- A kapcsolat sziguran írányitott, tehát nem fordulhat elő hogy a hivott a hívó előtt megszünjön))
+//- A hivott sosem szünik meg: ebben az esetben nincs szükség különösebben beavatkozni
+//- A hivás ideje alatt a hivott garantáltan nem tud megszünni (weak_ptr - shared_ptr használata)
+//- A hivás előtt megszüntetjük a kapcsolatot
+
+Egyszerüsitve a problémát, tekintsük az alábbi fogalmakat:
+Passziv kapcsolat: két objektum közti kapcsolat, de nincs hivás a kapcsolat mentén.
+Aktiv kapcsolat: két objektum közti kapcsolat és az aktuális pillanatban hivás van jelen.
+Ahoz, hogy egy kapcsolat mentén történt hivás biztonságát garantálni tudjuk az alábbi pontokat kell garantálni:
+- Objektumok megszünése aktiv módban nem lehetséges:
+		Tehát vagy az objektum élettartalma meghosszabodik vagy a megszünése blokkol ameddig létezik aktiv kapcsolata.
+- Objektumok megszünése csak passziv módban lehetséges:
+		Garantálja, hogy a kapcsolat nem tud újra aktív módba lépni.
+
+
+- Egy signal elpusztulása csak akkor lehetséges ha minden kapcsolatát megszüntette.
+Megoldás:
+...
+
 
 ### Compile-Time / Run-Time
 Concept, compile time cost, runtime cost

@@ -1,6 +1,14 @@
 // Stack -------------------------------------------------------------------------------------------
 
-trackable unified ptr?
+gerenal review about the new trackable system would be nice
+including short thinking about mutexing the system
+-- commit
+reqursive_mutex -> mutex; functionNoLock versions if needs to be
+review every mutex read / write: lock / unlock
+deadlock multi thread loops on signals
+-- commit
+output overloads for wp and sp (in tracking already supported...)
+-- commit
 per output store
 route address
 routing logic
@@ -10,10 +18,6 @@ Transform Signal
 -- commit
 Dynamic Accumulator
 Accumulator Host
--- commit
-Trackable and Trackable API
-Trackable type ereaser instead of inheritance
-This basicly means remove Trackable base class and handle trackable and handle it as concept
 -- commit
 Use historyMax
 -- commit
@@ -27,11 +31,6 @@ API / CompileTime virtual
 Rename Accumulator to Combinator?
 Add CombinatorHost?
 
-Trackable interface
-	could it be non virtual? at least partially?
-	unite with weak and shared and observer?
-	two headed trackable?
-
 Signal Hub
 Signal Proxy
 Signal Local Hub
@@ -39,9 +38,7 @@ Signal Local Proxy
 
 Signal Connection Marker
 
-
 http://gcc.godbolt.org/
-
 
 CTVF compile-time virtual function:
 	CRTP and a helper layer with sfiane for correct function overload selection in derived
@@ -75,3 +72,6 @@ typename = typename base_type::template is_acceptable_func<Func>
                     ^^^^^^^^^ dependent scope
 
 
+simultaneous bidirectional connection may introduce deadlock on current trackable implementation
+what makes boost signal2 trackable tick?
+http://www.boost.org/doc/libs/1_60_0/boost/signals2/

@@ -10,9 +10,9 @@
 using libv::RoutingSignal;
 
 // === RoutingSignal ============================================================================
-#include <iostream>
+
 TEST_CASE("RoutingSignal Test") {
-	RoutingSignal<int, libv::route_address<int>> source;
+	RoutingSignal<int, libv::RouteAddress<int>> source;
 
 //	SpyResultTypeFor(source) result;
 //	source.output(spyInto<void, int>(result));

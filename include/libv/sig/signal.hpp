@@ -34,6 +34,7 @@
 //				- Output auto-flush thread safety
 // TODO P5: Thread safety of modules: exposed function due to inheritance are the danger
 //			But, do i really considering cross module operations for solving this?
+// TODO P5: connect_position: at_back at_front
 
 // TODO P4: RoutingSignal [set/get]Condition(SignalRouter)
 // TODO P4: TransformSignal - Manipulating the arguments flowing through it using a
@@ -42,10 +43,14 @@
 // TODO P5: AdaptivSignal [in/out]put (same, generic lambda...)
 // TODO P5: PrioritySignal - Modified capacitive where the storage is a priority que
 // 			May consider a "predicate" function for generating priority
+// TODO P5: PriorityOutSignal - The outputs has a priority which will be used on broadcast
 // TODO P5: UniqueSignal - Modified capacitive where the storage is unique
 // 			May consider a "compare" function for determining uniqueness
 //			May consider merging and collapsing awaiting events buy a new one
 //			This would be through some template extensibility...
+// TODO P5: Repeater signal - one fire in multiple fire out
+// TODO P5: Merger signal - Stores last, compares and dont fire with same
+//			In other name "sync unique signal"
 // TODO P5: MoveSignal - allows && move as arg, but only has one output
 // TODO P5: AsnycSignal - Put the fire method and the arguments into a worker
 // 			thread que to call this signal in async mode. (template executor?)
@@ -326,7 +331,8 @@ template <typename...>
 class SignalBaseImpl;
 
 template <typename RType, typename... Args, typename Accumulator, typename ThreadPolicy>
-class SignalBaseImpl<RType(Args...), Accumulator, ThreadPolicy> : public TrackableBase {
+class SignalBaseImpl<RType(Args...), Accumulator, ThreadPolicy>
+		: public TrackableThread<ThreadPolicy> {
 public:
 	using this_type = SignalBaseImpl<RType(Args...), Accumulator, ThreadPolicy>;
 
@@ -340,28 +346,33 @@ public:
 	using is_acceptable_func = decltype(std::function<RType(Args...)>(std::declval<F>()));
 
 protected:
-	thread_policy threadPolicy;
-	mutable std::recursive_mutex mutex;
-	std::multiset<TrackableBase*> inputs;
-	std::multimap<TrackableBase*, std::function<RType(Args...) >> outputs;
+	mutable thread_policy mutex;
+	// ?This thread policy is for the signal itself, not for connections
 
-protected:
-	virtual void connect(TrackableBase* ptr, bool reflect = true) override {
-		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
+	struct Output {
+		template <typename Func>
+		Output(std::unique_ptr<detail::TrackableConnectionBase> con, Func&& func) :
+			con(std::move(con)), func(std::forward<Func>(func)) { }
 
-		if (reflect) {
-			inputs.emplace(ptr);
-			ptr->connect(this, false);
-		}
+		std::unique_ptr<detail::TrackableConnectionBase> con;
+		std::function<RType(Args...)> func;
+	};
+
+	std::vector<Output> outputs;
+
+	template <typename TP>
+	std::unique_ptr<detail::TrackableConnectionBase> makeConnection(TrackableThread<TP>& t) {
+		return std::make_unique<detail::TrackableConnectionTrackable<TP>>(
+				TrackableAccessor::getTrackingPoint(t));
 	}
-	virtual void disconnect(TrackableBase* ptr, bool reflect = true) override {
-		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
-		outputs.erase(ptr);
-		inputs.erase(ptr);
-
-		if (reflect && ptr)
-			ptr->disconnect(this, false);
+	std::unique_ptr<detail::TrackableConnectionBase> makeConnection() {
+		return std::make_unique<detail::TrackableConnectionNoTrackable>();
 	}
+	template <typename T>
+	std::unique_ptr<detail::TrackableConnectionBase> makeConnection(std::weak_ptr<T>& wp) {
+		return std::make_unique<detail::TrackableConnectionWeak>(wp);
+	}
+
 	// ---------------------------------------------------------------------------------------------
 public:
 	SignalBaseImpl() = default;
@@ -370,32 +381,31 @@ public:
 	// ---------------------------------------------------------------------------------------------
 protected:
 	result_type fireImpl(Args... args) {
+		size_t i = 0;
+		auto size = outputs.size();
 		auto acc = accumulator::create();
-		for (auto& output : outputs) {
-			if (accumulator::add(acc, output.second, std::forward<Args>(args)...))
-				return accumulator::result(acc);
+		while (i < size) {
+			auto& output = outputs[i];
+			auto connectionAlive = output.con->readLock();
+			auto connectionKeepAliveLock = make_read_lock_guard(*output.con, adopt_lock);
+
+			if (connectionAlive) {
+				if (accumulator::add(acc, output.func, std::forward<Args>(args)...))
+					break;
+				i++;
+			} else {
+				--size;
+				std::swap(outputs[i], outputs[size]);
+			}
 		}
+		outputs.erase(outputs.begin() + size, outputs.end());
 		return accumulator::result(acc);
 	}
 
 	// ---------------------------------------------------------------------------------------------
 public:
-	void clearInput() {
-		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
-		while (!inputs.empty())
-			disconnect(*inputs.begin());
-	}
-	void clearOutput() {
-		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
-		while (!outputs.empty())
-			disconnect(outputs.begin()->first);
-	}
-	inline size_t inputSize() const {
-		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
-		return inputs.size();
-	}
 	inline size_t outputSize() const {
-		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
+		auto lock = make_read_lock_guard(this->mutex);
 		return outputs.size();
 	}
 
@@ -412,43 +422,36 @@ public:
 	// ---------------------------------------------------------------------------------------------
 	template <typename Func, typename = is_acceptable_func<Func>>
 	inline void output(Func&& func) {
-		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
-		outputs.emplace(nullptr, std::forward<Func>(func));
+		auto lock = make_write_lock_guard(this->mutex);
+		outputs.emplace_back(makeConnection(), std::forward<Func>(func));
 	}
-	template <typename Func, typename = is_acceptable_func<Func>>
-	inline void output(TrackableBase& obj, Func&& func) {
+	template <typename TP, typename Func, typename = is_acceptable_func<Func>>
+	inline void output(TrackableThread<TP>& obj, Func&& func) {
 		output(&obj, std::forward<Func>(func));
 	}
-	template <typename Func, typename = is_acceptable_func<Func>>
-	inline void output(TrackableBase* obj, Func&& func) {
-		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
+	template <typename TP, typename Func, typename = is_acceptable_func<Func>>
+	inline void output(TrackableThread<TP>* obj, Func&& func) {
+		auto lock = make_write_lock_guard(this->mutex);
 
-		outputs.emplace(obj, std::forward<Func>(func));
-		static_cast<TrackableBase*> (obj)->connect(this, true);
+		outputs.emplace_back(makeConnection(*obj), std::forward<Func>(func));
 	}
 	template <typename Derived, typename Object = Derived>
-	inline void output(Derived& obj, RType(Object::*func)(Args...) = &Derived::operator()) {
-		output(&obj, func);
+	inline void output(Derived& obj, RType(Object::*memberFunc)(Args...) = &Derived::operator()) {
+		output(&obj, memberFunc);
 	}
 	template <typename Derived, typename Object = Derived>
-	inline void output(Derived* obj, RType(Object::*func)(Args...) = &Derived::operator()) {
-		std::lock_guard<std::recursive_mutex> thread_guard(mutex);
+	inline void output(Derived* obj, RType(Object::*memberFunc)(Args...) = &Derived::operator()) {
+		auto lock = make_write_lock_guard(this->mutex);
 		static_assert(std::is_base_of<TrackableBase, Object>::value,
 				"Object type has to be Derived from TrackableBase "
 				"(You may want to consider inheriting from libv::Trackable).");
 		static_assert(std::is_base_of<Object, Derived>::value,
 				"Member function has to be the derived member's function as Object");
 
-		outputs.emplace(obj, [obj, func](Args... args) {
-			(obj->*func)(std::forward<Args>(args)...);
+		outputs.emplace_back(makeConnection(*obj),
+		[obj, memberFunc](Args... args) {
+			return (obj->*memberFunc)(std::forward<Args>(args)...);
 		});
-		static_cast<TrackableBase*> (obj)->connect(this, true);
-	}
-
-	// ---------------------------------------------------------------------------------------------
-	virtual ~SignalBaseImpl() {
-		clearInput();
-		clearOutput();
 	}
 };
 
@@ -474,15 +477,16 @@ public:
 	using this_type = SignalImpl<RType(Args...), Modules...>;
 
 public:
-	SignalImpl() = default;
-	SignalImpl(const this_type& other) = delete;
-public:
 	inline typename base_type::result_type fire(Args... args) {
-		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
+		auto lock = make_read_lock_guard(this->mutex);
 		return this->fireImpl(std::forward<Args>(args)...);
 	}
 	inline typename base_type::result_type operator()(Args... args) {
-		fire(std::forward<Args>(args)...);
+		return fire(std::forward<Args>(args)...);
+	}
+public:
+	virtual ~SignalImpl() {
+		this->disconnect();
 	}
 };
 
@@ -518,15 +522,19 @@ private:
 	}
 public:
 	inline void fire(Args... args) {
-		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
+		auto lock = make_write_lock_guard(this->mutex);
 		argQue.emplace_back(args...);
 	}
 	inline void operator()(Args... args) {
 		fire(std::forward<Args>(args)...);
 	}
 	inline void flush() {
-		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
+		auto lock = make_write_lock_guard(this->mutex);
 		flushHelper(std::index_sequence_for < Args...>{});
+	}
+public:
+	virtual ~CapacitiveSignalImpl() {
+		this->disconnect();
 	}
 };
 
@@ -555,7 +563,7 @@ public:
 	using this_type = ConditionalSignalImpl<RType(Args...), Condition, Modules...>;
 public:
 	inline typename base_type::result_type fire(Args... args) {
-		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
+		auto lock = make_read_lock_guard(this->mutex);
 		if (Condition::check(std::forward<Args>(args)...)) {
 			return this->fireImpl(std::forward<Args>(args)...);
 		} else {
@@ -565,6 +573,10 @@ public:
 	}
 	inline typename base_type::result_type operator()(Args... args) {
 		return fire(std::forward<Args>(args)...);
+	}
+public:
+	virtual ~ConditionalSignalImpl() {
+		this->disconnect();
 	}
 };
 
@@ -615,34 +627,34 @@ public:
 		flushHelper(func, std::index_sequence_for<Args...>{});
 		base_type::output(std::forward<Func>(func));
 	}
-	template <typename Func, typename = typename base_type::template is_acceptable_func<Func>>
-	inline void output(TrackableBase& obj, Func&& func) {
+	template <typename TP, typename Func, typename = typename base_type::template is_acceptable_func<Func>>
+	inline void output(TrackableThread<TP>& obj, Func&& func) {
 		output(&obj, std::forward<Func>(func));
 	}
-	template <typename Func, typename = typename base_type::template is_acceptable_func<Func>>
-	inline void output(TrackableBase* obj, Func&& func) {
+	template <typename TP, typename Func, typename = typename base_type::template is_acceptable_func<Func>>
+	inline void output(TrackableThread<TP>* obj, Func&& func) {
 		base_type::output(obj, std::forward<Func>(func));
 	}
 	template <typename Derived, typename Object = Derived>
-	inline void output(Derived& obj, RType(Object::*func)(Args...) = &Derived::operator()) {
-		output(&obj, func);
+	inline void output(Derived& obj, RType(Object::*memberFunc)(Args...) = &Derived::operator()) {
+		output(&obj, memberFunc);
 	}
 	template <typename Derived, typename Object = Derived>
-	inline void output(Derived* obj, RType(Object::*func)(Args...) = &Derived::operator()) {
+	inline void output(Derived* obj, RType(Object::*memberFunc)(Args...) = &Derived::operator()) {
 		flushHelper([=](Args... args){
-			(obj->*func)(args...);
+			(obj->*memberFunc)(args...);
 		}, std::index_sequence_for<Args...>{});
-		base_type::output(obj, func);
+		base_type::output(obj, memberFunc);
 	}
 	inline size_t historySize() const {
-		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
+		auto lock = make_read_lock_guard(this->mutex);
 		return history.size();
 	}
 	inline size_t historyMax() const {
 		return historySizeMax;
 	}
 	inline void fire(Args... args) {
-		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
+		auto lock = make_read_lock_guard(this->mutex);
 		history.emplace_back(args...);
 		this->fireImpl(args...);
 	}
@@ -650,8 +662,12 @@ public:
 		fire(std::forward<Args>(args)...);
 	}
 	inline void clearHistory() {
-		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
+		auto lock = make_write_lock_guard(this->mutex);
 		history.clear();
+	}
+public:
+	virtual ~HistorySignalImpl() {
+		this->disconnect();
 	}
 };
 
@@ -661,7 +677,7 @@ template <typename...>
 class RoutingSignalImpl;
 
 template <typename T>
-struct route_address {
+struct RouteAddress {
 	using module = tag_type<tag::route_address>;
 	using address_type = T;
 };
@@ -672,7 +688,7 @@ template <typename R, typename... Args>
 struct module_filter<RoutingSignalImpl, R(Args...)> {
 	using base_type = module_filter<SignalBaseImpl, R(Args...)>;
 
-	using default_modules = list<route_address<size_t>>;
+	using default_modules = list<RouteAddress<size_t>>;
 	using parameter_tags = list<tag::route_address>;
 };
 
@@ -711,14 +727,15 @@ public:
 //		}, std::index_sequence_for<Args...>{});
 //		base_type::output(obj, func);
 //	}
-//	inline void fire(Args... args) {
-//		std::lock_guard<std::recursive_mutex> thread_guard(this->mutex);
-//		history.emplace_back(args...);
-//		this->fireImpl(args...);
+//	inline result_type fire(Args... args) {
 //	}
-//	inline void operator()(Args... args) {
-//		fire(std::forward<Args>(args)...);
+//	inline result_type operator()(Args... args) {
+//		return fire(std::forward<Args>(args)...);
 //	}
+public:
+	virtual ~RoutingSignalImpl() {
+		this->disconnect();
+	}
 };
 
 // === Aliases =====================================================================================

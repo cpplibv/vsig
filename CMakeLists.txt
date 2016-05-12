@@ -1,7 +1,7 @@
 #
 
 cmake_minimum_required (VERSION 3.1)
-project (libv)
+project (vsig)
 include(ExternalProject)
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
@@ -27,6 +27,7 @@ set(CMAKE_BUILD_TYPE "DEBUG")
 if(CMAKE_BUILD_TYPE EQUAL "DEBUG")
 	add_definitions(-O0)
 	add_definitions(-ggdb3)
+	add_definitions(-fno-omit-frame-pointer)
 else() #elseif(CMAKE_BUILD_TYPE EQUAL "RELEASE")
 	add_definitions(-Ofast)
 endif()
@@ -71,7 +72,8 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 
-	add_compile_options(-Wall -Wextra -Wconversion -Wpedantic -Wno-comment)
+	add_compile_options(-Wall -Wextra -Wconversion -Wpedantic)
+	add_compile_options(-Wno-comment)
 
 	if (NOT(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5.1))
 		add_compile_options(-Wsuggest-override)

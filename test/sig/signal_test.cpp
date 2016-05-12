@@ -19,7 +19,6 @@ using libv::ConditionalSignal;
 TEST_CASE("SignalConstruct") {
 	Signal<> testObj;
 
-	CHECK(testObj.inputSize() == 0u);
 	CHECK(testObj.outputSize() == 0u);
 }
 
@@ -30,15 +29,11 @@ TEST_CASE("SignalConstruct") {
 //	Signal<> source, target;
 //
 //	target.input(source);
-//	CHECK(source.inputSize() == 0u);
 //	CHECK(source.outputSize() == 1u);
-//	CHECK(target.inputSize() == 1u);
 //	CHECK(target.outputSize() == 0u);
 //
 //	target.input(&source);
-//	CHECK(source.inputSize() == 0u);
 //	CHECK(source.outputSize() == 2u);
-//	CHECK(target.inputSize() == 2u);
 //	CHECK(target.outputSize() == 0u);
 //}
 
@@ -50,15 +45,11 @@ struct signal_output_into_signal {
 
 		source.output(target);
 
-		CHECK(source.inputSize() == 0u);
 		CHECK(source.outputSize() == 1u);
-		CHECK(target.inputSize() == 1u);
 		CHECK(target.outputSize() == 0u);
 
 		source.output(&target);
-		CHECK(source.inputSize() == 0u);
 		CHECK(source.outputSize() == 2u);
-		CHECK(target.inputSize() == 2u);
 		CHECK(target.outputSize() == 0u);
 	}
 };
@@ -85,11 +76,8 @@ TEST_CASE("SignalRelaySignal") {
 //	relay.input(source);
 	source.output(relay);
 	relay.output(target);
-	CHECK(source.inputSize() == 0u);
 	CHECK(source.outputSize() == 1u);
-	CHECK(relay.inputSize() == 1u);
 	CHECK(relay.outputSize() == 1u);
-	CHECK(target.inputSize() == 1u);
 	CHECK(target.outputSize() == 0u);
 }
 
@@ -98,7 +86,6 @@ TEST_CASE("SignalOutputLamda") {
 
 	source.output([] {
 	});
-	CHECK(source.inputSize() == 0u);
 	CHECK(source.outputSize() == 1u);
 }
 
@@ -106,7 +93,6 @@ TEST_CASE("SignalOutputStdFunction") {
 	Signal<> source;
 
 	source.output(std::function<void()>(dummyGlobalFunction<void>));
-	CHECK(source.inputSize() == 0u);
 	CHECK(source.outputSize() == 1u);
 }
 
@@ -114,7 +100,6 @@ TEST_CASE("SignalOutputStdBind") {
 	Signal<> source;
 
 	source.output(std::bind(dummyGlobalFunction<void, int>, 1));
-	CHECK(source.inputSize() == 0u);
 	CHECK(source.outputSize() == 1u);
 }
 
@@ -122,11 +107,9 @@ TEST_CASE("SignalOutputGloablFunction") {
 	Signal<> source;
 
 	source.output(dummyGlobalFunction<>);
-	CHECK(source.inputSize() == 0u);
 	CHECK(source.outputSize() == 1u);
 
 	source.output(&dummyGlobalFunction<>);
-	CHECK(source.inputSize() == 0u);
 	CHECK(source.outputSize() == 2u);
 }
 
@@ -134,11 +117,9 @@ TEST_CASE("SignalOutputStaticFunction") {
 	Signal<> source;
 
 	source.output(dummyType<>::staticFunction);
-	CHECK(source.inputSize() == 0u);
 	CHECK(source.outputSize() == 1u);
 
 	source.output(&dummyType<>::staticFunction);
-	CHECK(source.inputSize() == 0u);
 	CHECK(source.outputSize() == 2u);
 }
 
@@ -147,11 +128,9 @@ TEST_CASE("SignalOutputMemberFunction") {
 	dummyType<> target;
 
 	source.output(target, &dummyType<>::memberFunction);
-	CHECK(source.inputSize() == 0u);
 	CHECK(source.outputSize() == 1u);
 
 	source.output(&target, &dummyType<>::memberFunction);
-	CHECK(source.inputSize() == 0u);
 	CHECK(source.outputSize() == 2u);
 }
 
@@ -163,20 +142,9 @@ TEST_CASE("SignalConnectionSignalLifeTime") {
 		Signal<> target;
 		source.output(target);
 		CHECK(source.outputSize() == 1u);
-		CHECK(target.inputSize() == 1u);
 	}
+	source.fire(); // Current system working of fire initiated garbage collection based output cleanup
 	CHECK(source.outputSize() == 0u);
-}
-
-TEST_CASE("SignalConnectionSignalLifeTime 2") {
-	Signal<> target;
-	{
-		Signal<> source;
-		source.output(target);
-		CHECK(source.outputSize() == 1u);
-		CHECK(target.inputSize() == 1u);
-	}
-	CHECK(target.inputSize() == 0u);
 }
 
 TEST_CASE("SignalConnectionTrackableLifeTime") {
@@ -185,20 +153,9 @@ TEST_CASE("SignalConnectionTrackableLifeTime") {
 		dummyType<> dummyTarget;
 		source.output(dummyTarget, &dummyType<>::memberFunction);
 		CHECK(source.outputSize() == 1u);
-		CHECK(dummyTarget.connectionCount() == 1u);
 	}
+	source.fire(); // Current system working of fire initiated garbage collection based output cleanup
 	CHECK(source.outputSize() == 0u);
-}
-
-TEST_CASE("SignalConnectionTrackableLifeTime 2") {
-	dummyType<> dummyTarget;
-	{
-		Signal<> source;
-		source.output(dummyTarget, &dummyType<>::memberFunction);
-		CHECK(source.outputSize() == 1u);
-		CHECK(dummyTarget.connectionCount() == 1u);
-	}
-	CHECK(dummyTarget.connectionCount() == 0u);
 }
 
 TEST_CASE("SignalConnectionGlobalLifeTime") {
@@ -393,15 +350,15 @@ TEST_CASE("SignalReturnDefaultAccumulation") {
 
 // === MultiThread =================================================================================
 
-void foo(Signal<int>* s) {
+void foo(Signal<int, libv::MultiThread>* s) {
 	for (int i = 0; i < 1000; i++) {
 		s->fire(i);
 	}
 }
 
 TEST_CASE("Signal multi thread stress") {
-	Signal<int> source;
-	Signal<int> target;
+	Signal<int, libv::MultiThread> source;
+	Signal<int, libv::MultiThread> target;
 
 	std::thread t0(foo, &source);
 	std::thread t1(foo, &source);

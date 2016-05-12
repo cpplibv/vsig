@@ -16,6 +16,7 @@ struct Base : libv::Trackable {
 		CHECK(should_reach);
 	}
 };
+
 struct Derived : Base {
 	void foo(int) {
 		CHECK(should_reach);
@@ -27,13 +28,25 @@ struct BaseOp : libv::Trackable {
 		CHECK(should_reach);
 	}
 };
+
 struct DerivedOp : BaseOp {
 	void operator()(int) {
 		CHECK(should_reach);
 	}
 };
+
 void globalFunctionShouldReachCheck(int) {
 	CHECK(should_reach);
+}
+
+template <typename Signal>
+void fire_signal_helper(Signal& s, int i) {
+	s.fire(i);
+}
+
+void fire_signal_helper(libv::CapacitiveSignal<int>& s, int i) {
+	s.fire(i);
+	s.flush();
 }
 
 // --- Output --------------------------------------------------------------------------------------
@@ -76,17 +89,21 @@ void signal_output_into_everything() {
 
 		source.output(dummyGlobalFunction<void, int>);
 		// Global function without tracking point: No check executed
-		source.output([](int){});
+		source.output([](int) {
+		});
 		// Global function without tracking point: No check executed
 
 		source.output(targetTrackingPoint, globalFunctionShouldReachCheck);
-		source.output(targetTrackingPoint, [](int){ CHECK(should_reach); });
+		source.output(targetTrackingPoint, [](int) {
+			CHECK(should_reach); });
 
-		source.fire(1);
+		fire_signal_helper(source, 1);
+		CHECK(source.outputSize() == 19u);
 	}
 	should_reach = false;
 
-	source.fire(2);
+	fire_signal_helper(source, 2);
+	CHECK(source.outputSize() == 2u);
 }
 
 TEST_CASE("Signal output into everything") {
