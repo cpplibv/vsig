@@ -60,16 +60,19 @@ struct TrackableConnectionTrackable final : TrackableConnectionBase {
 struct TrackableConnectionWeak final : TrackableConnectionBase {
 	std::shared_ptr<void> tr_sp;
 	std::weak_ptr<void> tr_wp;
+	TrackableConnectionWeak(const std::weak_ptr<void>& tr_wp) :
+		tr_wp(tr_wp) { }
+
 	virtual bool readLock() override {
 		tr_sp = tr_wp.lock();
-		return tr_wp.expired();
+		return !tr_wp.expired();
 	}
 	virtual void readUnlock() override {
 		tr_sp.reset();
 	}
 	virtual bool writeLock() override {
 		tr_sp = tr_wp.lock();
-		return tr_wp.expired();
+		return !tr_wp.expired();
 	}
 	virtual void writeUnlock() override {
 		tr_sp.reset();

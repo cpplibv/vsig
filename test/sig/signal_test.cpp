@@ -47,10 +47,6 @@ struct signal_output_into_signal {
 
 		CHECK(source.outputSize() == 1u);
 		CHECK(target.outputSize() == 0u);
-
-		source.output(&target);
-		CHECK(source.outputSize() == 2u);
-		CHECK(target.outputSize() == 0u);
 	}
 };
 
@@ -129,9 +125,6 @@ TEST_CASE("SignalOutputMemberFunction") {
 
 	source.output(target, &dummyType<>::memberFunction);
 	CHECK(source.outputSize() == 1u);
-
-	source.output(&target, &dummyType<>::memberFunction);
-	CHECK(source.outputSize() == 2u);
 }
 
 // --- Connection Lifetime -------------------------------------------------------------------------

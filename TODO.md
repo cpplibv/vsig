@@ -1,20 +1,16 @@
 // Stack -------------------------------------------------------------------------------------------
 
-gerenal review about the new trackable system would be nice
-including short thinking about mutexing the system
--- commit
-reqursive_mutex -> mutex; functionNoLock versions if needs to be
-review every mutex read / write: lock / unlock
-deadlock multi thread loops on signals
--- commit
-output overloads for wp and sp (in tracking already supported...)
--- commit
 per output store
 route address
 routing logic
 Routing Signal
 -- commit
 Transform Signal
+-- commit
+review mutexing the system
+reqursive_mutex -> mutex; functionNoLock versions if needs to be
+review every mutex read / write: lock / unlock
+deadlock multi thread loops on signals
 -- commit
 Dynamic Accumulator
 Accumulator Host

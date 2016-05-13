@@ -17,6 +17,12 @@ struct Base : libv::Trackable {
 	}
 };
 
+struct Member {
+	void bar(int) {
+		CHECK(should_reach);
+	}
+};
+
 struct Derived : Base {
 	void foo(int) {
 		CHECK(should_reach);
@@ -30,6 +36,12 @@ struct BaseOp : libv::Trackable {
 };
 
 struct DerivedOp : BaseOp {
+	void operator()(int) {
+		CHECK(should_reach);
+	}
+};
+
+struct MemberOp {
 	void operator()(int) {
 		CHECK(should_reach);
 	}
@@ -65,6 +77,9 @@ void signal_output_into_everything() {
 		BaseOp targetBaseOp;
 		DerivedOp targetDerivedOp;
 		BaseOp& targetPolymorfOp = targetDerivedOp;
+		auto targetTrackingPointSP = std::make_shared<int>(0);
+		auto targetMemberSP = std::make_shared<Member>();
+		auto targetMemberOPSP = std::make_shared<MemberOp>();
 
 		source.output(targetSignal);
 		source.output(targetSignal, &libv::Signal<int>::operator());
@@ -78,27 +93,31 @@ void signal_output_into_everything() {
 		source.output(targetPolymorf, &Derived::bar);
 
 		source.output(targetDerived, &Derived::foo);
+		source.output(targetMemberSP, &Member::bar);
 
 		source.output(targetBaseOp, &BaseOp::operator());
 		source.output(targetDerivedOp, &BaseOp::operator());
 		source.output(targetDerivedOp, &DerivedOp::operator());
+		source.output(targetMemberOPSP, &MemberOp::operator());
 
 		source.output(targetBaseOp);
 		source.output(targetDerivedOp);
 		source.output(targetPolymorfOp);
+		source.output(targetMemberOPSP);
 
 		source.output(dummyGlobalFunction<void, int>);
 		// Global function without tracking point: No check executed
-		source.output([](int) {
-		});
+		source.output([](int) { });
 		// Global function without tracking point: No check executed
 
 		source.output(targetTrackingPoint, globalFunctionShouldReachCheck);
-		source.output(targetTrackingPoint, [](int) {
-			CHECK(should_reach); });
+		source.output(targetTrackingPoint, [](int) { CHECK(should_reach); });
 
+		source.output(targetTrackingPointSP, [](int) { CHECK(should_reach); });
+
+		CHECK(source.outputSize() == 23u);
 		fire_signal_helper(source, 1);
-		CHECK(source.outputSize() == 19u);
+		CHECK(source.outputSize() == 23u);
 	}
 	should_reach = false;
 

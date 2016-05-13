@@ -346,32 +346,78 @@ public:
 	using is_acceptable_func = decltype(std::function<RType(Args...)>(std::declval<F>()));
 
 protected:
+	struct Output {
+		std::unique_ptr<detail::TrackableConnectionBase> con;
+		std::function<RType(Args...)> func;
+
+		template <typename TP>
+		static std::unique_ptr<detail::TrackableConnectionBase> makeConnection(TrackableThread<TP>& t) {
+			return std::make_unique<detail::TrackableConnectionTrackable<TP>>(
+					TrackableAccessor::getTrackingPoint(t));
+		}
+		static std::unique_ptr<detail::TrackableConnectionBase> makeConnection() {
+			return std::make_unique<detail::TrackableConnectionNoTrackable>();
+		}
+		static std::unique_ptr<detail::TrackableConnectionBase> makeConnection(const std::weak_ptr<void>& wp) {
+			return std::make_unique<detail::TrackableConnectionWeak>(wp);
+		}
+
+		explicit Output(Output&& orig) :
+			con(std::move(orig.con)),
+			func(std::move(orig.func)) {
+		}
+		Output& operator=(Output&& orig) {
+			con = std::move(orig.con);
+			func = std::move(orig.func);
+			return *this;
+		}
+		template <typename Func, typename = is_acceptable_func<Func>>
+		explicit Output(Func&& func) :
+			con(makeConnection()),
+			func(std::forward<Func>(func)) {
+		}
+		template <typename TP, typename Func, typename = is_acceptable_func<Func>>
+		Output(TrackableThread<TP>& obj, Func&& func) :
+			con(makeConnection(obj)),
+			func(std::forward<Func>(func)) {
+		}
+		template <typename Derived, typename Object = Derived>
+		explicit Output(Derived& obj, RType(Object::*memberFunc)(Args...) = &Derived::operator()) :
+			con(makeConnection(obj)),
+			func([&obj, memberFunc](Args... args) {
+				return (obj.*memberFunc)(std::forward<Args>(args)...);
+			}) {
+			static_assert(std::is_base_of<TrackableBase, Object>::value,
+					"Object type has to be Derived from TrackableBase "
+					"(You may want to consider inheriting from libv::Trackable).");
+			static_assert(std::is_base_of<Object, Derived>::value,
+					"Member function has to be the derived member's function as Object");
+		}
+		template <typename T, typename Func, typename = is_acceptable_func<Func>>
+		Output(std::shared_ptr<T>& tracker, Func&& func) :
+			con(makeConnection(std::weak_ptr<void>(tracker))),
+			func(std::forward<Func>(func)) { }
+
+		template <typename Derived, typename Object = Derived>
+		explicit Output(std::shared_ptr<Derived>& obj, RType(Object::*memberFunc)(Args...) = &Derived::operator()) :
+			con(makeConnection(obj)),
+			func([raw_ptr = obj.get(), memberFunc](Args... args){
+					return (raw_ptr->*memberFunc)(std::forward<Args>(args)...);
+			}) { }
+
+		void swap(Output& other) {
+			std::swap(con, other.con);
+			std::swap(func, other.func);
+		}
+	};
+
+	template <typename... OArgs>
+	using is_acceptable_output = decltype(Output(std::declval<OArgs>()...));
+
 	mutable thread_policy mutex;
 	// ?This thread policy is for the signal itself, not for connections
 
-	struct Output {
-		template <typename Func>
-		Output(std::unique_ptr<detail::TrackableConnectionBase> con, Func&& func) :
-			con(std::move(con)), func(std::forward<Func>(func)) { }
-
-		std::unique_ptr<detail::TrackableConnectionBase> con;
-		std::function<RType(Args...)> func;
-	};
-
 	std::vector<Output> outputs;
-
-	template <typename TP>
-	std::unique_ptr<detail::TrackableConnectionBase> makeConnection(TrackableThread<TP>& t) {
-		return std::make_unique<detail::TrackableConnectionTrackable<TP>>(
-				TrackableAccessor::getTrackingPoint(t));
-	}
-	std::unique_ptr<detail::TrackableConnectionBase> makeConnection() {
-		return std::make_unique<detail::TrackableConnectionNoTrackable>();
-	}
-	template <typename T>
-	std::unique_ptr<detail::TrackableConnectionBase> makeConnection(std::weak_ptr<T>& wp) {
-		return std::make_unique<detail::TrackableConnectionWeak>(wp);
-	}
 
 	// ---------------------------------------------------------------------------------------------
 public:
@@ -395,7 +441,7 @@ protected:
 				i++;
 			} else {
 				--size;
-				std::swap(outputs[i], outputs[size]);
+				outputs[i].swap(outputs[size]);
 			}
 		}
 		outputs.erase(outputs.begin() + size, outputs.end());
@@ -410,48 +456,11 @@ public:
 	}
 
 	// ---------------------------------------------------------------------------------------------
-//	template <typename SignalType, typename = enable_if_t<is_signal<SignalType>>>
-//	inline void input(SignalType& sig) {
-//		sig.output(this);
-//	}
-//	template <typename SignalType, typename = enable_if_t<is_signal<SignalType>>>
-//	inline void input(SignalType* const sig) {
-//		sig->output(this);
-//	}
 
-	// ---------------------------------------------------------------------------------------------
-	template <typename Func, typename = is_acceptable_func<Func>>
-	inline void output(Func&& func) {
+	template <typename... OArgs, typename = is_acceptable_output<OArgs...>>
+	inline void output(OArgs&&... args){
 		auto lock = make_write_lock_guard(this->mutex);
-		outputs.emplace_back(makeConnection(), std::forward<Func>(func));
-	}
-	template <typename TP, typename Func, typename = is_acceptable_func<Func>>
-	inline void output(TrackableThread<TP>& obj, Func&& func) {
-		output(&obj, std::forward<Func>(func));
-	}
-	template <typename TP, typename Func, typename = is_acceptable_func<Func>>
-	inline void output(TrackableThread<TP>* obj, Func&& func) {
-		auto lock = make_write_lock_guard(this->mutex);
-
-		outputs.emplace_back(makeConnection(*obj), std::forward<Func>(func));
-	}
-	template <typename Derived, typename Object = Derived>
-	inline void output(Derived& obj, RType(Object::*memberFunc)(Args...) = &Derived::operator()) {
-		output(&obj, memberFunc);
-	}
-	template <typename Derived, typename Object = Derived>
-	inline void output(Derived* obj, RType(Object::*memberFunc)(Args...) = &Derived::operator()) {
-		auto lock = make_write_lock_guard(this->mutex);
-		static_assert(std::is_base_of<TrackableBase, Object>::value,
-				"Object type has to be Derived from TrackableBase "
-				"(You may want to consider inheriting from libv::Trackable).");
-		static_assert(std::is_base_of<Object, Derived>::value,
-				"Member function has to be the derived member's function as Object");
-
-		outputs.emplace_back(makeConnection(*obj),
-		[obj, memberFunc](Args... args) {
-			return (obj->*memberFunc)(std::forward<Args>(args)...);
-		});
+		outputs.emplace_back(std::forward<OArgs>(args)...);
 	}
 };
 
@@ -622,30 +631,16 @@ private:
 		}
 	}
 public:
-	template <typename Func, typename = typename base_type::template is_acceptable_func<Func>>
-	inline void output(Func&& func) {
-		flushHelper(func, std::index_sequence_for<Args...>{});
-		base_type::output(std::forward<Func>(func));
+	template <typename... OArgs, typename = typename base_type::template is_acceptable_output<OArgs...>>
+	inline void output(OArgs&&... args) {
+		typename base_type::Output out(std::forward<OArgs>(args)...);
+		{
+			auto con_lock = make_read_lock_guard(*out.con);
+			flushHelper(out.func, std::index_sequence_for<Args...>{});
+		}
+		base_type::output(std::move(out));
 	}
-	template <typename TP, typename Func, typename = typename base_type::template is_acceptable_func<Func>>
-	inline void output(TrackableThread<TP>& obj, Func&& func) {
-		output(&obj, std::forward<Func>(func));
-	}
-	template <typename TP, typename Func, typename = typename base_type::template is_acceptable_func<Func>>
-	inline void output(TrackableThread<TP>* obj, Func&& func) {
-		base_type::output(obj, std::forward<Func>(func));
-	}
-	template <typename Derived, typename Object = Derived>
-	inline void output(Derived& obj, RType(Object::*memberFunc)(Args...) = &Derived::operator()) {
-		output(&obj, memberFunc);
-	}
-	template <typename Derived, typename Object = Derived>
-	inline void output(Derived* obj, RType(Object::*memberFunc)(Args...) = &Derived::operator()) {
-		flushHelper([=](Args... args){
-			(obj->*memberFunc)(args...);
-		}, std::index_sequence_for<Args...>{});
-		base_type::output(obj, memberFunc);
-	}
+public:
 	inline size_t historySize() const {
 		auto lock = make_read_lock_guard(this->mutex);
 		return history.size();
