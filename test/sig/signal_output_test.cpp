@@ -131,4 +131,5 @@ TEST_CASE("Signal output into everything") {
 	signal_output_into_everything<libv::SwitchSignal>();
 	signal_output_into_everything<libv::HistorySignal>();
 	signal_output_into_everything<libv::ConditionalSignal>();
+//	signal_output_into_everything<libv::RoutingSignal>(); // Routing signal has special output params
 }

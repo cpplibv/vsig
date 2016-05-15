@@ -1,10 +1,5 @@
 // Stack -------------------------------------------------------------------------------------------
 
-per output store
-route address
-routing logic
-Routing Signal
--- commit
 Transform Signal
 -- commit
 review mutexing the system
@@ -14,6 +9,8 @@ deadlock multi thread loops on signals
 -- commit
 Dynamic Accumulator
 Accumulator Host
+-- commit
+Return type and Accumulator for capacitiv Signal
 -- commit
 Use historyMax
 -- commit

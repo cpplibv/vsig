@@ -35,8 +35,11 @@
 // TODO P5: Thread safety of modules: exposed function due to inheritance are the danger
 //			But, do i really considering cross module operations for solving this?
 // TODO P5: connect_position: at_back at_front
+// TODO P5: Inherit RoutingSignalImpl from SignalBaseImpl
+// TODO P5: Dynamic routing logic
+// TODO P5: Allow routing logic to see every output address instead of linear feeding
+//			(for some reason co-routing word came to my mind)
 
-// TODO P4: RoutingSignal [set/get]Condition(SignalRouter)
 // TODO P4: TransformSignal - Manipulating the arguments flowing through it using a
 // 			manipulator function. Similar to std::transform.
 
@@ -101,6 +104,7 @@ struct module_filter;
 template <template <typename...> class Signal, typename ModulesList, typename = void>
 struct apply_modul_pack {
 	static_assert(always_false<ModulesList>::value, ""
+			"\n\tFailed to instantiate signal."
 			"\n\tInvalid combination of signal parameters / modules."
 			"\n\tCheck template parameters of the current apply_modul_pack type:"
 			"\n\t\tSignal - Signal type which will get your modules after filter"
@@ -305,6 +309,105 @@ using signal_alias_t = typename signal_alias<Signal, RawArgs...>::type;
 //
 //
 // =================================================================================================
+//     Output Implementations
+// =================================================================================================
+//
+//
+
+template <typename Signature>
+struct SignalOutput;
+
+template <typename RType, typename... Args>
+struct SignalOutput<RType(Args...)> {
+	using module = tag_type<tag::output>;
+	template <typename F>
+	using is_acceptable_func = decltype(std::function<RType(Args...)>(std::declval<F>()));
+
+	std::unique_ptr<detail::TrackableConnectionBase> con;
+	std::function<RType(Args...)> func;
+
+	template <typename TP>
+	static std::unique_ptr<detail::TrackableConnectionBase> makeConnection(TrackableThread<TP>& t) {
+		return std::make_unique<detail::TrackableConnectionTrackable<TP>>(
+				TrackableAccessor::getTrackingPoint(t));
+	}
+	static std::unique_ptr<detail::TrackableConnectionBase> makeConnection() {
+		return std::make_unique<detail::TrackableConnectionNoTrackable>();
+	}
+	static std::unique_ptr<detail::TrackableConnectionBase> makeConnection(const std::weak_ptr<void>& wp) {
+		return std::make_unique<detail::TrackableConnectionWeak>(wp);
+	}
+
+	SignalOutput(SignalOutput&& orig) = default;
+	SignalOutput(const SignalOutput& orig) = default;
+	SignalOutput& operator=(SignalOutput&& orig) = default;
+	SignalOutput& operator=(const SignalOutput& orig) = default;
+
+	template <typename Func, typename = is_acceptable_func<Func>>
+	explicit SignalOutput(Func&& func) :
+		con(makeConnection()),
+		func(std::forward<Func>(func)) {
+	}
+	template <typename TP, typename Func, typename = is_acceptable_func<Func>>
+	SignalOutput(TrackableThread<TP>& obj, Func&& func) :
+		con(makeConnection(obj)),
+		func(std::forward<Func>(func)) {
+	}
+	template <typename Derived, typename Object = Derived>
+	explicit SignalOutput(Derived& obj, RType(Object::*memberFunc)(Args...) = &Derived::operator()) :
+		con(makeConnection(obj)),
+		func([&obj, memberFunc](Args... args) {
+			return (obj.*memberFunc)(std::forward<Args>(args)...);
+		}) {
+		static_assert(std::is_base_of<TrackableBase, Object>::value,
+				"Object type has to be Derived from TrackableBase "
+				"(You may want to consider inheriting from libv::Trackable).");
+		static_assert(std::is_base_of<Object, Derived>::value,
+				"Member function has to be the derived member's function as Object");
+	}
+	template <typename T, typename Func, typename = is_acceptable_func<Func>>
+	SignalOutput(std::shared_ptr<T>& tracker, Func&& func) :
+		con(makeConnection(std::weak_ptr<void>(tracker))),
+		func(std::forward<Func>(func)) { }
+
+	template <typename Derived, typename Object = Derived>
+	explicit SignalOutput(std::shared_ptr<Derived>& obj, RType(Object::*memberFunc)(Args...) = &Derived::operator()) :
+		con(makeConnection(obj)),
+		func([raw_ptr = obj.get(), memberFunc](Args... args){
+				return (raw_ptr->*memberFunc)(std::forward<Args>(args)...);
+		}) { }
+
+	void swap(SignalOutput& other) {
+		std::swap(con, other.con);
+		std::swap(func, other.func);
+	}
+};
+
+template <typename Signature, typename Address>
+struct SignalOutputRoute : SignalOutput<Signature> {
+	Address addr;
+
+	SignalOutputRoute(SignalOutputRoute&& orig) = default;
+	SignalOutputRoute(const SignalOutputRoute& orig) = default;
+	SignalOutputRoute& operator=(SignalOutputRoute&& orig) = default;
+	SignalOutputRoute& operator=(const SignalOutputRoute& orig) = default;
+
+	template <typename... Args, typename = decltype(SignalOutput<Signature>(std::declval<Args>()...))>
+	explicit SignalOutputRoute(Address addr, Args&&... args) :
+		SignalOutput<Signature>(std::forward<Args>(args)...),
+		addr(addr) {}
+
+	void swap(SignalOutputRoute& other) {
+		std::swap(this->con, other.con);
+		std::swap(this->func, other.func);
+		std::swap(this->addr, other.addr);
+	}
+};
+
+
+//
+//
+// =================================================================================================
 //     Signal Implementations
 // =================================================================================================
 //
@@ -338,86 +441,20 @@ public:
 
 	using accumulator = accumulator_traits<Accumulator>;
 	using thread_policy = ThreadPolicy;
+	using output_type = SignalOutput<RType(Args...)>;
 
 	using result_type = typename accumulator::result_type;
 
 	using module = tag_type<tag::signal>;
-	template <typename F>
-	using is_acceptable_func = decltype(std::function<RType(Args...)>(std::declval<F>()));
 
 protected:
-	struct Output {
-		std::unique_ptr<detail::TrackableConnectionBase> con;
-		std::function<RType(Args...)> func;
-
-		template <typename TP>
-		static std::unique_ptr<detail::TrackableConnectionBase> makeConnection(TrackableThread<TP>& t) {
-			return std::make_unique<detail::TrackableConnectionTrackable<TP>>(
-					TrackableAccessor::getTrackingPoint(t));
-		}
-		static std::unique_ptr<detail::TrackableConnectionBase> makeConnection() {
-			return std::make_unique<detail::TrackableConnectionNoTrackable>();
-		}
-		static std::unique_ptr<detail::TrackableConnectionBase> makeConnection(const std::weak_ptr<void>& wp) {
-			return std::make_unique<detail::TrackableConnectionWeak>(wp);
-		}
-
-		explicit Output(Output&& orig) :
-			con(std::move(orig.con)),
-			func(std::move(orig.func)) {
-		}
-		Output& operator=(Output&& orig) {
-			con = std::move(orig.con);
-			func = std::move(orig.func);
-			return *this;
-		}
-		template <typename Func, typename = is_acceptable_func<Func>>
-		explicit Output(Func&& func) :
-			con(makeConnection()),
-			func(std::forward<Func>(func)) {
-		}
-		template <typename TP, typename Func, typename = is_acceptable_func<Func>>
-		Output(TrackableThread<TP>& obj, Func&& func) :
-			con(makeConnection(obj)),
-			func(std::forward<Func>(func)) {
-		}
-		template <typename Derived, typename Object = Derived>
-		explicit Output(Derived& obj, RType(Object::*memberFunc)(Args...) = &Derived::operator()) :
-			con(makeConnection(obj)),
-			func([&obj, memberFunc](Args... args) {
-				return (obj.*memberFunc)(std::forward<Args>(args)...);
-			}) {
-			static_assert(std::is_base_of<TrackableBase, Object>::value,
-					"Object type has to be Derived from TrackableBase "
-					"(You may want to consider inheriting from libv::Trackable).");
-			static_assert(std::is_base_of<Object, Derived>::value,
-					"Member function has to be the derived member's function as Object");
-		}
-		template <typename T, typename Func, typename = is_acceptable_func<Func>>
-		Output(std::shared_ptr<T>& tracker, Func&& func) :
-			con(makeConnection(std::weak_ptr<void>(tracker))),
-			func(std::forward<Func>(func)) { }
-
-		template <typename Derived, typename Object = Derived>
-		explicit Output(std::shared_ptr<Derived>& obj, RType(Object::*memberFunc)(Args...) = &Derived::operator()) :
-			con(makeConnection(obj)),
-			func([raw_ptr = obj.get(), memberFunc](Args... args){
-					return (raw_ptr->*memberFunc)(std::forward<Args>(args)...);
-			}) { }
-
-		void swap(Output& other) {
-			std::swap(con, other.con);
-			std::swap(func, other.func);
-		}
-	};
-
 	template <typename... OArgs>
-	using is_acceptable_output = decltype(Output(std::declval<OArgs>()...));
+	using is_acceptable_output = decltype(output_type(std::declval<OArgs>()...));
 
 	mutable thread_policy mutex;
 	// ?This thread policy is for the signal itself, not for connections
 
-	std::vector<Output> outputs;
+	std::vector<output_type> outputs;
 
 	// ---------------------------------------------------------------------------------------------
 public:
@@ -633,7 +670,7 @@ private:
 public:
 	template <typename... OArgs, typename = typename base_type::template is_acceptable_output<OArgs...>>
 	inline void output(OArgs&&... args) {
-		typename base_type::Output out(std::forward<OArgs>(args)...);
+		typename base_type::output_type out(std::forward<OArgs>(args)...);
 		{
 			auto con_lock = make_read_lock_guard(*out.con);
 			flushHelper(out.func, std::index_sequence_for<Args...>{});
@@ -671,63 +708,103 @@ public:
 template <typename...>
 class RoutingSignalImpl;
 
-template <typename T>
-struct RouteAddress {
-	using module = tag_type<tag::route_address>;
-	using address_type = T;
-};
-
 // -------------------------------------------------------------------------------------------------
 
 template <typename R, typename... Args>
 struct module_filter<RoutingSignalImpl, R(Args...)> {
 	using base_type = module_filter<SignalBaseImpl, R(Args...)>;
 
-	using default_modules = list<RouteAddress<size_t>>;
-	using parameter_tags = list<tag::route_address>;
+	using default_modules = list<RoutingFirstArgAsAddress<size_t>>;
+	using parameter_tags = list<tag::routing_logic>;
 };
 
 // -------------------------------------------------------------------------------------------------
 
-template <typename RType, typename... Args, typename RouteAddress, typename... Modules>
-class RoutingSignalImpl<RType(Args...), RouteAddress, Modules...>
-		: public SignalBaseImpl<RType(Args...), Modules...> {
+template <typename RType, typename... Args, typename RoutingLogic, typename Accumulator, typename ThreadPolicy>
+class RoutingSignalImpl<RType(Args...), RoutingLogic, Accumulator, ThreadPolicy>
+		: public TrackableThread<ThreadPolicy> {
 public:
-	using base_type = SignalBaseImpl<RType(Args...), Modules...>;
-	using this_type = RoutingSignalImpl<RType(Args...), RouteAddress, Modules...>;
-public:
-	using address = typename RouteAddress::address_type;
+	using this_type = RoutingSignalImpl<RType(Args...), RoutingLogic, Accumulator, ThreadPolicy>;
 
-//	template <typename Func, typename = typename base_type::template is_acceptable_func<Func>>
-//	inline void output(Func&& func) {
-//		flushHelper(func, std::index_sequence_for<Args...>{});
-//		base_type::output(std::forward<Func>(func));
-//	}
-//	template <typename Func, typename = typename base_type::template is_acceptable_func<Func>>
-//	inline void output(TrackableBase& obj, Func&& func) {
-//		output(&obj, std::forward<Func>(func));
-//	}
-//	template <typename Func, typename = typename base_type::template is_acceptable_func<Func>>
-//	inline void output(TrackableBase* obj, Func&& func) {
-//		base_type::output(obj, std::forward<Func>(func));
-//	}
-//	template <typename Derived, typename Object = Derived>
-//	inline void output(Derived& obj, RType(Object::*func)(Args...) = &Derived::operator()) {
-//		output(&obj, func);
-//	}
-//	template <typename Derived, typename Object = Derived>
-//	inline void output(Derived* obj, RType(Object::*func)(Args...) = &Derived::operator()) {
-//		flushHelper([=](Args... args){
-//			(obj->*func)(args...);
-//		}, std::index_sequence_for<Args...>{});
-//		base_type::output(obj, func);
-//	}
-//	inline result_type fire(Args... args) {
-//	}
-//	inline result_type operator()(Args... args) {
-//		return fire(std::forward<Args>(args)...);
-//	}
+	using accumulator = accumulator_traits<Accumulator>;
+	using thread_policy = ThreadPolicy;
+	using output_type = SignalOutputRoute<RType(Args...), typename RoutingLogic::address_type>;
+	using routing_logic = RoutingLogic;
+
+	using result_type = typename accumulator::result_type;
+
+	using module = tag_type<tag::signal>;
+
+protected:
+	struct AuxChainMakeOutput {
+		using result = output_type;
+
+		template<typename... AUX_ARGS>
+		static output_type doReturn(AUX_ARGS&&... args) {
+			return output_type(std::forward<AUX_ARGS>(args)...);
+		}
+	};
+	template <typename... OArgs>
+	using is_acceptable_output = decltype(routing_logic::makeOutput(std::declval<AuxChainMakeOutput>(), std::declval<OArgs>()...));
+
+	mutable thread_policy mutex;
+	// ?This thread policy is for the signal itself, not for connections
+
+	std::vector<output_type> outputs;
+
+	// ---------------------------------------------------------------------------------------------
 public:
+	RoutingSignalImpl() = default;
+	RoutingSignalImpl(const this_type& other) = delete;
+
+	// ---------------------------------------------------------------------------------------------
+protected:
+	result_type fireImpl(Args... args) {
+		size_t i = 0;
+		auto size = outputs.size();
+		auto acc = accumulator::create();
+		while (i < size) {
+			auto& output = outputs[i];
+			auto connectionAlive = output.con->readLock();
+			auto connectionKeepAliveLock = make_read_lock_guard(*output.con, adopt_lock);
+
+			if (connectionAlive) {
+				if (routing_logic::pass(output.addr, args...))
+					if (accumulator::add(acc, output.func, std::forward<Args>(args)...))
+						break;
+				i++;
+			} else {
+				--size;
+				outputs[i].swap(outputs[size]);
+			}
+		}
+		outputs.erase(outputs.begin() + size, outputs.end());
+		return accumulator::result(acc);
+	}
+
+	// ---------------------------------------------------------------------------------------------
+public:
+	inline result_type fire(Args... args) {
+		auto lock = make_read_lock_guard(this->mutex);
+		return this->fireImpl(std::forward<Args>(args)...);
+	}
+	inline result_type operator()(Args... args) {
+		return fire(std::forward<Args>(args)...);
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	inline size_t outputSize() const {
+		auto lock = make_read_lock_guard(this->mutex);
+		return outputs.size();
+	}
+
+	template <typename... OArgs, typename = is_acceptable_output<OArgs...>>
+	inline void output(OArgs&&... args){
+		auto lock = make_write_lock_guard(this->mutex);
+		outputs.emplace_back(routing_logic::makeOutput(AuxChainMakeOutput(), std::forward<OArgs>(args)...));
+	}
+
+	// ---------------------------------------------------------------------------------------------
 	virtual ~RoutingSignalImpl() {
 		this->disconnect();
 	}

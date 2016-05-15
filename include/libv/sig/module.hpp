@@ -273,7 +273,6 @@ struct ConditionStatic {
 private:
 	F func;
 protected:
-	ConditionStatic() = default;
 	template <typename... Args>
 	inline bool check(Args&&... args){
 		return func(std::forward<Args>(args)...);
@@ -283,10 +282,57 @@ protected:
 struct ConditionTrue {
 	using module = tag_type<tag::condition>;
 protected:
-	ConditionTrue() = default;
 	template <typename... Args>
 	inline bool check(Args&&... args){
 		return true;
+	}
+};
+
+//
+//
+// =================================================================================================
+//     Routing Logic
+// =================================================================================================
+//
+//
+
+template <typename T>
+struct RoutingLogicBase {
+	using module = tag_type<tag::routing_logic>;
+	using address_type = T;
+
+	template <typename AUX, typename... Args>
+	static typename AUX::result makeOutput(AUX, address_type addr, Args&&... args) {
+		return AUX::doReturn(std::move(addr), std::forward<Args>(args)...);
+	}
+};
+
+template <typename T>
+struct RoutingFirstArgAsAddress : RoutingLogicBase<T> {
+	template <typename... Args>
+	static bool pass(const T& addr, const T& firstArg, Args&&...) {
+		return addr == firstArg;
+	}
+};
+
+template <typename T>
+struct RoutingRangeAddress {
+	T lowerBound;
+	T upperBound;
+};
+
+template <typename T>
+struct RoutingFirstArgAsInRange : RoutingLogicBase<RoutingRangeAddress<T>> {
+	template <typename First, typename... Args>
+	static bool pass(const RoutingRangeAddress<T>& addr, const First& firstArg, Args&&...) {
+		return addr.lowerBound < firstArg && addr.upperBound > firstArg;
+	}
+
+	using RoutingLogicBase<RoutingRangeAddress<T>>::makeOutput;
+
+	template <typename AUX, typename... Args>
+	static typename AUX::result makeOutput(AUX, const T& lower, const T& upper, Args&&... args) {
+		return AUX::doReturn(RoutingRangeAddress<T>{lower, upper}, std::forward<Args>(args)...);
 	}
 };
 

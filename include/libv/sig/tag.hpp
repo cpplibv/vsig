@@ -11,9 +11,10 @@ namespace tag {
 struct accumulator {};
 struct condition {};
 struct history_size {};
-struct route_address {};
+struct routing_logic {};
 struct signal {};
 struct thread_policy {};
+struct output {};
 
 } //namespace tag
 
