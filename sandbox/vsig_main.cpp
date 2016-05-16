@@ -18,18 +18,7 @@ using namespace libv;
 // -------------------------------------------------------------------------------------------------
 
 int main(int, char**) {
-	Signal<int(int) > s;
-	{
-//		Signal<int(int) > s2;
-//		s.output(s2);
-		Trackable t;
-		s.output(t, [](int i){return i;});
-//		s2.output([](int i) {
-//			return i;
-//		});
-		std::cout << s.fire(2) << std::endl;
-	}
-	std::cout << s.fire(3) << std::endl;
+	Signal<int> s;
 
 	std::cout << "-- eof --" << std::endl;
 	return 0;

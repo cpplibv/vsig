@@ -4,41 +4,32 @@
 
 #define LIBV_SIGNAL_VERSION 2016041100
 
-// TODO P1: Use templated containers
-// TODO P1: Use ordered small vector for Signal-Slot-Trackable
-// TODO P1: Rework Signal-Slot multithreading with shared_reqursive_mutex
+// TODO P1: Use max history
+// TODO P2: Rework Signal-Slot multithreading with shared_reqursive_mutex
 // 			http://en.cppreference.com/w/cpp/thread/shared_mutex
 //			Or with lock free way, or both...
-// TODO P1: Rework connection and trackable objects
 // TODO P2: Branch signals into two: sync and async signals, this will ease my pain about them...
 // TODO P2: Forbid && move / review std::forward
-// TODO P2: Change from trackable to shared or weak ptr
-// 			signal target variable ami egy shared_ptr és a signal kap róla
-// 			egy weak_ptr-t így amikor külden rá infot csak kidobja magából, ígykönnyen
-// 			lehet "lokális változót" asnyc módosítani
 // TODO P2: Add "Signal Hub" approach where signals are light weight and a main hub stores
 //			everything and member signal "markers" (or what should i call them...) are just an
 //			accessors to the hub wrapping the necessary minimal information.
 //			SignalHub is a trackable
 //			Both method should be kept
-// TODO P3: Decide the fate of input functions. Could be implemented with CRTP...
 // IDEA: ...and this CRTP could be used for disabling default functions... or not.
-// TODO P3: Remove reference, remove constness from results type?
-// TODO P3: In Signal Hub-Proxy a connection can be represented with only 1 ptr where the last last
-//			bit of the address can represent the direction!
+// TODO P4: Use templated containers
 // TODO P4: Current accumulator rename to "combined result"? and add a bigger encapsulation
 //			which can provide (through inheritance?) runtime signal non-fire-local store and logic
-// TODO P5: HistorySignal:
+// TODO P4: HistorySignal:
 //				- Dynamic history size
 //				- Circular buffer
 //				- Output auto-flush thread safety
 // TODO P5: Thread safety of modules: exposed function due to inheritance are the danger
 //			But, do i really considering cross module operations for solving this?
-// TODO P5: connect_position: at_back at_front
 // TODO P5: Inherit RoutingSignalImpl from SignalBaseImpl
 // TODO P5: Dynamic routing logic
 // TODO P5: Allow routing logic to see every output address instead of linear feeding
 //			(for some reason co-routing word came to my mind)
+// TODO P5: RoutingLogicAPI: makeOutput -> makeAddress
 
 // TODO P4: TransformSignal - Manipulating the arguments flowing through it using a
 // 			manipulator function. Similar to std::transform.
@@ -47,6 +38,7 @@
 // TODO P5: PrioritySignal - Modified capacitive where the storage is a priority que
 // 			May consider a "predicate" function for generating priority
 // TODO P5: PriorityOutSignal - The outputs has a priority which will be used on broadcast
+//			Similar to routing as it stores addition parameter with outputs
 // TODO P5: UniqueSignal - Modified capacitive where the storage is unique
 // 			May consider a "compare" function for determining uniqueness
 //			May consider merging and collapsing awaiting events buy a new one
@@ -80,10 +72,10 @@
 // NAME: Proxy: SignalProxy, SignalMarker
 
 #include <functional>
-#include <map>
+//#include <map>
 #include <memory>
 #include <mutex>
-#include <set>
+//#include <set>
 #include <vector>
 
 #include "module.hpp"
