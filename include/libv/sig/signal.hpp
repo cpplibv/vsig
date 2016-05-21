@@ -4,6 +4,10 @@
 
 #define LIBV_SIGNAL_VERSION 2016041100
 
+// TODO P0: Before merging to libv care about that capacitiv signal changed multithreading behavior
+// TODO P0: Merging to libv.sig and (with creation) to libv.meta
+// TODO P1: Unify modules
+// TODO P1: Arg should be fine for const Arg& callback.
 // TODO P1: Use max history
 // TODO P2: Rework Signal-Slot multithreading with shared_reqursive_mutex
 // 			http://en.cppreference.com/w/cpp/thread/shared_mutex
@@ -30,6 +34,8 @@
 // TODO P5: Allow routing logic to see every output address instead of linear feeding
 //			(for some reason co-routing word came to my mind)
 // TODO P5: RoutingLogicAPI: makeOutput -> makeAddress
+// TODO P5: I am afraid to write it down, but exception handling work everywhere?
+// TODO P5: HistorySignal: multithread garantiee no slipping by events
 
 // TODO P4: TransformSignal - Manipulating the arguments flowing through it using a
 // 			manipulator function. Similar to std::transform.
@@ -72,10 +78,8 @@
 // NAME: Proxy: SignalProxy, SignalMarker
 
 #include <functional>
-//#include <map>
 #include <memory>
 #include <mutex>
-//#include <set>
 #include <vector>
 
 #include "module.hpp"

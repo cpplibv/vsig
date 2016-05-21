@@ -6,20 +6,39 @@
 #include <mutex>
 #include <vector>
 #include <memory>
+#include <string>
+#include <algorithm>
+#include <thread>
 
 //#include <libv/sig/accumulator.hpp>
 #include <libv/sig/signal.hpp>
 //#include <libv/sig/type_traits.hpp>
+
 namespace libv {
 } //namespace libv
 
 using namespace libv;
+using namespace std;
+
+void foo(Signal<int>* s, Signal<int>* s2){
+	for (int i = 0; i < 2000000; i++) {
+		s->output(*s2);
+	}
+}
 
 // -------------------------------------------------------------------------------------------------
 
 int main(int, char**) {
-	Signal<int> s;
+	Signal<int> source1;
+	Signal<int> source2;
 
-	std::cout << "-- eof --" << std::endl;
+	thread t1(foo, &source1, &source2);
+	thread t2(foo, &source2, &source1);
+
+	t1.join();
+	t2.join();
+
 	return 0;
 }
+
+// -------------------------------------------------------------------------------------------------

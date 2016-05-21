@@ -60,6 +60,4 @@ partial CRTP fire?
 Isnt this partial CRTP is one form of the CTVF?
 
 
-simultaneous bidirectional connection may introduce deadlock on current trackable implementation
-what makes boost signal2 trackable tick?
 http://www.boost.org/doc/libs/1_60_0/boost/signals2/
