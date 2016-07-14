@@ -252,7 +252,7 @@ public:
 struct ConditionSwitch {
 	using module = tag_type<tag::condition>;
 private:
-	std::atomic<bool> enabled;
+	std::atomic<bool> enabled{true};
 protected:
 	template <typename... Args>
 	inline bool check(Args&&...) {
