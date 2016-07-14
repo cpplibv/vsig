@@ -235,7 +235,7 @@ struct ConditionDynamic {
 private:
 	std::function<bool(Args...)> func;
 protected:
-	inline bool check(Args... args){
+	inline bool check(Args... args) {
 		return func(std::forward<Args>(args)...);
 	}
 public:
@@ -286,6 +286,20 @@ protected:
 	inline bool check(Args&&... args){
 		return true;
 	}
+};
+
+//
+//
+// =================================================================================================
+//     History Size
+// =================================================================================================
+//
+//
+
+template <size_t N>
+struct history_size {
+	using module = tag_type<tag::history_size>;
+	static constexpr size_t value = N;
 };
 
 //

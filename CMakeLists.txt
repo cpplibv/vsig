@@ -131,10 +131,10 @@ add_executable(vsig_test   ${vsig_test_src})
 add_executable(vsig_main   ${PATH_SNB}/vsig_main.cpp)
 
 #Example - Executables
-#add_executable(vsig_main   ${PATH_EXP}/example0_signal_doing_this.cpp)
-#add_executable(vsig_main   ${PATH_EXP}/example1_signal_doing_this.cpp)
-#add_executable(vsig_main   ${PATH_EXP}/example2_signal_doing_this.cpp)
-#add_executable(vsig_main   ${PATH_EXP}/example3_signal_doing_this.cpp)
+#add_executable(example0_signal_doing_this   ${PATH_EXP}/example0_signal_doing_this.cpp)
+#add_executable(example1_signal_doing_this   ${PATH_EXP}/example1_signal_doing_this.cpp)
+#add_executable(example2_signal_doing_this   ${PATH_EXP}/example2_signal_doing_this.cpp)
+#add_executable(example3_signal_doing_this   ${PATH_EXP}/example3_signal_doing_this.cpp)
 
 #Custom Targets
 add_custom_target(externals DEPENDS ${EXTERNAL_PROJECT_LIST})

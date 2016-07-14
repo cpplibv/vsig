@@ -117,13 +117,6 @@ struct list_to_signature<list<RType, Args...>> {
 	using type = RType(Args...);
 };
 
-// map ---------------------------------------------------------------------------------------------
-
-template <typename... T>
-struct bag;
-
-
-
 // find_first --------------------------------------------------------------------------------------
 
 template <template <typename...> class, typename...>
@@ -242,8 +235,8 @@ struct search_call_signature<Head, Tail...> : search_call_signature<Tail...> {};
 
 // is_signal ---------------------------------------------------------------------------------------
 
-template <typename SignalType>
-using is_signal = is_module_tag<SignalType, tag::signal>;
+template <typename T>
+using is_signal = is_module_tag<T, tag::signal>;
 
 // -------------------------------------------------------------------------------------------------
 
