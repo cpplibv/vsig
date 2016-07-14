@@ -24,7 +24,7 @@ set(CMAKE_BUILD_TYPE "DEBUG")
 #set(CMAKE_BUILD_TYPE "RELEASE")
 
 #Definitions
-if(CMAKE_BUILD_TYPE EQUAL "DEBUG")
+if(CMAKE_BUILD_TYPE STREQUAL "DEBUG")
 	add_definitions(-O0)
 	add_definitions(-ggdb3)
 	add_definitions(-fno-omit-frame-pointer)
@@ -79,7 +79,7 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 		add_compile_options(-Wsuggest-override)
 	endif()
 
-	if(CMAKE_BUILD_TYPE EQUAL "DEBUG")
+	if(CMAKE_BUILD_TYPE STREQUAL "DEBUG")
 		#add_compile_options(-fsanitize=address)
 		#add_compile_options(-fsanitize=kernel-address)
 		#add_compile_options(-fsanitize=leak)
