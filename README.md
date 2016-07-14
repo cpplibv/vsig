@@ -1,21 +1,24 @@
 # VSIG
 
 ## Introduction
-VSIG is a generalized header-only library implementing a signal-slot variant in native C++14 with higher level of abstractions and extensibility.
+VSIG is a generalized header-only library implementing a signal-slot like event handling system in
+native C++14 with higher level of abstractions and extensibility.
 VSIG has no other dependency then C++14 and does not require any additional build step.
 The implementation should be portable and warning resistant.
 
 ## Motivation
-Signal-Slot is a paradigm where Signals (sources of information / events / calls) can be connected to Slots (drains / callback functions / functions).
-This paradigm has already been implemented several times but i found every implementation laking in some aspects.
-Most of the existing implementation were:
+Signal-Slot is a paradigm where Signals (sources of information / events / calls) can be connected
+to Slots (drains / callback functions / functions) and if a Signal is notified (fired / called)
+every connected Slot will receives it. This paradigm has already been implemented several times
+but i found every implementation laking in some aspects. Most of the existing implementation were:
 - either uses its own preprocessor (which is a non-standard and adds many dependencies or build steps)
 - or does not utilizes modern C++ template features and therefore has some limitation
 - or hard or cannot be extended with addition 'external' logic
 - or concentrate only on the basic signal forwarding
 
-I found many trivial problem around event handling such as async calls, conditions or routing which can be solved by the event handling system itself.
-The implementation also does not distinguish Signals and Slots, everything is considered as a Signal thus signals can be chained.
+I also found many trivial problem around event handling such as async calls, conditions or routing
+which can be solved by the event handling system itself. The implementation also does not
+distinguish Signals and Slots, everything is considered as a Signal thus signals can be chained.
 And the library is full of 'proof of concepts' so i learned more implementing it then any other way.
 
 ## Build
@@ -174,47 +177,47 @@ Accumulator or combinator of return values. Merges multiple return values into o
 Accumulators can interrupt distribution (useful for logical shortcuts) or can change the return type (useful for not loosing precision).
 
 Examples:
-- AccumulatorAnd\<T> - Evaluate return values as logical AND with shortcut.
-- AccumulatorCounter\<T> - Ignores original return value and returns the count of call delivery.
-- AccumulatorLast\<T> - Returns the last return value.
-- AccumulatorLimiter\<T, N> - Ignores original return value and limit the count of call delivery to N.
-- AccumulatorSum\<T> - Summarizes the return values.
+- `AccumulatorAnd<T>` - Evaluate return values as logical AND with shortcut.
+- `AccumulatorCounter<T>` - Ignores original return value and returns the count of call delivery.
+- `AccumulatorLast<T>` - Returns the last return value.
+- `AccumulatorLimiter<T, N>` - Ignores original return value and limit the count of call delivery to N.
+- `AccumulatorSum<T>` - Summarizes the return values.
 
 #### call_syntax
 Special module. Determines the arguments and the return type.
 
 Example:
-- Signal\<> - void return value with no argument
-- Signal\<int> - void return value with one int as argument
-- Signal\<int(double)> - int return value with one double as argument
+- `Signal<>` - void return value with no argument
+- `Signal<int>` - void return value with one int as argument
+- `Signal<int(double)>` - int return value with one double as argument
 
 #### condition
 Determines the pre-condition of call forwarding.
 
 Example:
-- ConditionDynamic\<Args...> - Allows run time condition change. Adds setCondition(F) (F is bool(Args...) like function object).
-- ConditionStatic\<F> - Allows compile time condition change where (F is bool(Args...) like function type).
-- ConditionSwitch - Adds enable and disable public member functions with the expected behavior into the Signal.
+- `ConditionDynamic<Args...>` - Allows run time condition change. Adds setCondition(F) (F is bool(Args...) like function object).
+- `ConditionStatic<F>` - Allows compile time condition change where (F is bool(Args...) like function type).
+- `ConditionSwitch` - Adds enable and disable public member functions with the expected behavior into the Signal.
 
 #### history_size
 Determines the maximum number of calls stored.
 
 Example:
-- history_size\<N> - sets the maximum number of calls stored to N, 0 means no limit.
+- `history_size<N>` - sets the maximum number of calls stored to N, 0 means no limit.
 
 #### routing_logic
 Determines the routing logic.
 
 Example:
-- RoutingFirstArgAsAddress\<T> - Route calls by choosing the first argument of the call and matches against the output's value
-- RoutingFirstArgAsInRange\<T> - Route calls by choosing the first argument of the call and matches against the output's range
+- `RoutingFirstArgAsAddress<T>` - Using the first argument of the call and matches against the output's value
+- `RoutingFirstArgAsInRange<T>` - Using the first argument of the call and matches against the output's range
 
 #### thread_policy
 Determines the multi thread policy.
 
 Example:
-- SingleThread
-- MultiThread
+- `SingleThread`
+- `MultiThread`
 
 ## Multi Thread support
 There is full multi-thread support.
@@ -224,12 +227,12 @@ Currently the default thread support is Single thread due the nature of event ha
 To access thread-safe version of any signal or endpoint just use `MultiThread` thread_policy module.
 
 Example for Signals:
-- Signal\<MultiThread>
-- Signal\<int(int), MultiThread>
-- CapacitivSignal\<int, int, int, MultiThread>
+- `Signal<MultiThread>`
+- `Signal<int(int), MultiThread>`
+- `CapacitivSignal<int, int, int, MultiThread>`
 
 Example for Trackable:
-- TrackableThread\<MultiThread>
+- `TrackableThread<MultiThread>`
 
 ## Aliasing
 One of the main unique feature of the library is its aliasing system.
@@ -248,7 +251,7 @@ The deduction pseudo rules are follows:
 - If call syntax is present every other parameter has to be a module.
 - If call syntax is not present return type set to void and every non module parameter will be handled as Arguments with respect to order.
 
-If the deduction or parsing of template parameters fail you will most likely recive a static assert error message which tries to help you.
+If the deduction or parsing of template parameters fail you will most likely receive a static assert error message which tries to help you.
 
 ##### Example A:
 
@@ -264,7 +267,7 @@ But what would be the correct template parameter order?:
 
 The beauty of the system that every one of the lines above are correct.
 Moreover, because in this case the deafult Accumulator and ThreadPolicy would be
-SingleThread and AccumulatorSum\<int> the following versions are also correct:
+`SingleThread` and `AccumulatorSum<int>` the following versions are also correct:
 
 - `Signal<int(), AccumulatorSum<int>>`
 - `Signal<AccumulatorSum<int>, int()>`
@@ -288,12 +291,12 @@ Which is also can be written as:
 - `Signal<MultiThread, const MouseEvent&>`
 - `Signal<MultiThread, void(const MouseEvent&)>`
 
-Which would result in: `SignalImpl<void(const MouseEvent&), AccumulatorSum<void>, MultiThread>`
+And all of them would result in: `SignalImpl<void(const MouseEvent&), AccumulatorSum<void>, MultiThread>`
 
 ## Performance
 TODO: graphs and comparison to std::function, boost::signal2, plain vtble
 
-## Whan it should be used?
+## When it should be used?
 - Whenever you are dealing with a high extensibility requirements in a callback or signal system
 - When the focus is on the extensibility and maintainability instead of raw like performance
 - When callback are planed to handle non trivial tasks
