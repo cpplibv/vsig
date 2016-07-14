@@ -21,6 +21,8 @@ API / CompileTime virtual
 
 // -------------------------------------------------------------------------------------------------
 
+Merger Signal is a Conditional Signal!
+
 Rename Accumulator to Combinator?
 Add CombinatorHost?
 
@@ -28,7 +30,6 @@ Signal Hub
 Signal Proxy
 Signal Local Hub
 Signal Local Proxy
-
 Signal Connection Marker
 
 http://gcc.godbolt.org/
@@ -39,25 +40,20 @@ CTVF compile-time virtual function:
 wrapper identity for nesting template type
 	member template type to bypass template template type syntax
 
-traits
-
 implement CTVF
 
 Different int / class / class id:
 template<class T> int x;
 template<class T> constexpr int* p = &x<T>;
 
-benchmarks:
+make a pull request into benchmarks:
 https://github.com/NoAvailableAlias/signal-slot-benchmarks
 
-add_compile_options(-flto=13)
 add_compile_options(-fconcepts)
 
-full CRPT maybe not necessary, partial CRTP?
+full CRTP maybe not necessary, partial CRTP?
 partial CRTP output?
 partial CRTP fire?
 
 Isnt this partial CRTP is one form of the CTVF?
 
-
-http://www.boost.org/doc/libs/1_60_0/boost/signals2/
