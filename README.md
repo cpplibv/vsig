@@ -315,3 +315,7 @@ Boost.Signals2 - http://www.boost.org/doc/libs/1_61_0/doc/html/signals2.html
 QT - http://doc.qt.io/qt-5/signalsandslots.html
 
 libsigc - http://libsigc.sourceforge.net/
+
+## License
+
+VSIG is licensed under the [zlib/libpng license](https://opensource.org/licenses/zlib-license.php).
