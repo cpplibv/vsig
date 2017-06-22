@@ -1,4 +1,4 @@
-// File:   meta.hpp Author: Vader Created on 2016. július 11., 10:58
+// File: meta.hpp Author: Vader Created on 2016. július 11., 10:58
 
 #pragma once
 

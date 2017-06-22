@@ -1,5 +1,7 @@
 // Stack -------------------------------------------------------------------------------------------
 
+process graph for understanding modularization
+-- commit
 Transform Signal
 -- commit
 review mutexing the system
@@ -43,8 +45,8 @@ wrapper identity for nesting template type
 implement CTVF
 
 Different int / class / class id:
-template<class T> int x;
-template<class T> constexpr int* p = &x<T>;
+template <class T> int x;
+template <class T> constexpr int* p = &x<T>;
 
 make a pull request into benchmarks:
 https://github.com/NoAvailableAlias/signal-slot-benchmarks

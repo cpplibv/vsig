@@ -21,9 +21,9 @@ struct call_signature_to_arg_vector<RType(Args...)> {
 
 // -------------------------------------------------------------------------------------------------
 
-template<typename...> struct SpyResultFor;
+template <typename...> struct SpyResultFor;
 
-template<template <typename...> class S, typename... Moduls>
+template <template <typename...> class S, typename... Moduls>
 struct SpyResultFor<S<Moduls...>> {
 	using signature = typename libv::select_call_signature<Moduls...>::type;
 	using type = typename call_signature_to_arg_vector<signature>::type;
@@ -31,7 +31,7 @@ struct SpyResultFor<S<Moduls...>> {
 
 // -------------------------------------------------------------------------------------------------
 
-template<typename R, typename... Args, typename T>
+template <typename R, typename... Args, typename T>
 std::function<R(Args...)> spyInto(T& result) {
 	return [&result](Args... args) {
 		result.emplace_back(args...);
@@ -39,10 +39,10 @@ std::function<R(Args...)> spyInto(T& result) {
 }
 
 // --- Dummy targets -------------------------------------------------------------------------------
-template<typename R = void, typename... Args>
+template <typename R = void, typename... Args>
 R dummyGlobalFunction(Args...) { }
 
-template<typename R = void, typename... Args>
+template <typename R = void, typename... Args>
 struct dummyType : public libv::Trackable {
 	R memberFunction(Args...) { }
 //	using libv::Trackable::connectionCount;

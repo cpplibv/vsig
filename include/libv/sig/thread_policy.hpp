@@ -1,4 +1,4 @@
-// File:   thread_policy.hpp Author: Vader Created on March 13, 2016, 2:55 PM
+// File: thread_policy.hpp Author: Vader Created on March 13, 2016, 2:55 PM
 
 #pragma once
 

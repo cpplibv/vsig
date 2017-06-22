@@ -4,7 +4,7 @@
 
 #define LIBV_SIGNAL_VERSION 2016041100
 
-// TODO P0: Before merging to libv care about that capacitiv signal changed multithreading behavior
+// TODO P0: Before merging to libv care about that capacitive signal changed multithreading behavior
 // TODO P0: Merging to libv.sig and (with creation) to libv.meta
 // TODO P1: Unify modules
 // TODO P1: change const SignalOutput& orig -> to SignalOutput orig
@@ -67,8 +67,13 @@
 //			could be a FilterSignalPtr that points to the UI signal and stores the boundaries)
 //			Or would a Signal Tunnel be a better name?
 
+// IDEA:	Using SFINAE on template functions as value not as type to allow overload hiding
+//			template <typename = enable_if<true>> void foo1();
+//			template <typename = enable_if<fals>> void foo2(); // Not work
+//			template <enable_if<true, int> = 0> void foo1();
+//			template <enable_if<fals, int> = 0> void foo2(); // Work
 // FACT: Signal ctor needs to be able to handle an adaptor?
-// FACT: It is possible to do adaptiv slots! it is very possible generic lambda?
+// FACT: It is possible to do adaptive slots! it is very possible generic lambda?
 // NAME: Hub: SignalHub, SignalHost
 // NAME: Proxy: SignalProxy, SignalMarker
 
@@ -331,7 +336,7 @@ public:
 private:
 	std::vector<std::tuple<typename std::remove_reference<Args>::type...>> argQue;
 private:
-	template<std::size_t... Is>
+	template <std::size_t... Is>
 	inline void flushHelper(std::index_sequence<Is...>) {
 		for (auto& item : argQue) {
 			this->fireImpl(std::get<Is>(item)...);
@@ -493,7 +498,7 @@ protected:
 	struct AuxChainMakeOutput {
 		using result = output_type;
 
-		template<typename... AUX_ARGS>
+		template <typename... AUX_ARGS>
 		static output_type doReturn(AUX_ARGS&&... args) {
 			return output_type(std::forward<AUX_ARGS>(args)...);
 		}
